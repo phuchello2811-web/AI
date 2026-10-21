@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CodeMaster AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="logo">&lt;/&gt;</div>
+      <div>
+        <div class="brand-name">CodeMaster</div>
+        <div class="brand-sub">AI code chạy trên máy bạn</div>
+      </div>
+    </div>
+    <button class="btn primary wide" id="newChat">+ Cuộc trò chuyện mới</button>
+    <div class="conv-list" id="convList"></div>
+    <div class="sidebar-foot" id="status">Đang kiểm tra…</div>
+  </aside>
+
+  <!-- Chat -->
+  <main class="chat">
+    <header class="chat-head">
+      <button class="icon-btn mobile-only" id="toggleSidebar" title="Danh sách">☰</button>
+      <div class="chat-title" id="chatTitle">CodeMaster</div>
+      <div class="head-actions">
+        <button class="btn ghost" id="openJudge">⚖️<span class="label"> Trình chấm</span></button>
+        <button class="btn ghost" id="openPreview">🌐<span class="label"> Website</span></button>
+      </div>
+    </header>
+
+    <div class="messages" id="messages">
+      <div class="welcome" id="welcome">
+        <h1>Xin chào! Hôm nay code gì?</h1>
+        <p>AI chạy <b>hoàn toàn trên máy bạn</b>: offline, miễn phí. Dán đề bài tin học, AI viết code, tự chạy test mẫu và tự sửa khi sai. Hoặc mô tả website, AI build và hiện bản xem trước ngay.</p>
+        <div class="starters">
+          <button class="starter" data-mode="cp" data-prompt="Cho dãy n số nguyên a1, a2, ..., an (1 ≤ n ≤ 2·10^5, |ai| ≤ 10^9). Hãy tìm đoạn con liên tiếp khác rỗng có tổng lớn nhất.&#10;&#10;Input: Dòng đầu chứa n. Dòng thứ hai chứa n số nguyên.&#10;Output: Một số nguyên là tổng lớn nhất.&#10;&#10;Ví dụ&#10;Input:&#10;5&#10;-2 1 -3 4 -1&#10;Output:&#10;4">
+            <span class="s-icon">🏆</span><b>Giải bài tin</b><span>Thuật toán, độ phức tạp, code đã test</span>
+          </button>
+          <button class="starter" data-mode="web" data-prompt="Build cho tôi một website portfolio cá nhân cho lập trình viên: hero section, kỹ năng, dự án, liên hệ. Giao diện hiện đại, tối, responsive, có hiệu ứng nhẹ.">
+            <span class="s-icon">🌐</span><b>Build website</b><span>Xem trước trực tiếp bên phải</span>
+          </button>
+          <button class="starter" data-mode="chat" data-prompt="Code C++ của tôi bị WA, giúp tôi tìm lỗi và sửa:&#10;&#10;```cpp&#10;// dán code vào đây&#10;```">
+            <span class="s-icon">🐞</span><b>Debug code</b><span>Tìm test sai &amp; sửa lỗi</span>
+          </button>
+          <button class="starter" data-mode="chat" data-prompt="Giải thích thuật toán Segment Tree với lazy propagation: ý tưởng, độ phức tạp, và code mẫu C++.">
+            <span class="s-icon">📚</span><b>Học thuật toán</b><span>Giải thích kèm code mẫu</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <form class="composer" id="composer">
+      <div class="attachments" id="attachments"></div>
+      <textarea id="input" rows="1" placeholder="Dán đề bài (kèm ví dụ input/output)… Enter để gửi, Shift+Enter xuống dòng"></textarea>
+      <div class="composer-bar">
+        <label class="icon-btn" title="Đính kèm ảnh đề bài">
+          📎<input type="file" id="fileInput" accept="image/*" multiple hidden>
+        </label>
+        <select id="mode" title="Chế độ">
+          <option value="cp">🏆 Giải bài tin</option>
+          <option value="web">🌐 Build web</option>
+          <option value="chat">💬 Hỏi đáp</option>
+        </select>
+        <select id="model" title="Model"></select>
+        <label class="toggle" id="thinkWrap" title="Cho AI suy nghĩ trước khi trả lời: đúng hơn nhưng chậm hơn">
+          <input type="checkbox" id="think"> Suy nghĩ
+        </label>
+        <span class="hint" id="usage"></span>
+        <button type="submit" class="btn primary" id="sendBtn">Gửi ➤</button>
+      </div>
+    </form>
+  </main>
+
+  <!-- Right panel -->
+  <section class="panel hidden" id="panel">
+    <div class="panel-tabs">
+      <button class="tab active" data-tab="judge">⚖️ Trình chấm</button>
+      <button class="tab" data-tab="preview">🌐 Website</button>
+      <button class="icon-btn close" id="closePanel" title="Đóng">✕</button>
+    </div>
+
+    <div class="tab-body" id="tab-judge">
+      <div class="judge-bar">
+        <select id="judgeLang">
+          <option value="cpp">C++17</option>
+          <option value="python">Python 3</option>
+          <option value="c">C</option>
+        </select>
+        <label class="tl">TL <input type="number" id="judgeTL" value="2" min="0.1" max="10" step="0.1">s</label>
+        <button class="btn primary" id="runBtn">▶ Chạy</button>
+      </div>
+      <div class="editor-wrap"><textarea id="editor"></textarea></div>
+      <div class="tests-head">
+        <b>Test</b>
+        <button class="btn ghost small" id="addTest">+ Thêm test</button>
+      </div>
+      <div class="tests" id="tests"></div>
+      <div class="judge-result" id="judgeResult"></div>
+    </div>
+
+    <div class="tab-body hidden" id="tab-preview">
+      <div class="preview-bar">
+        <select id="fileSelect"><option value="">Xem trước</option></select>
+        <button class="btn ghost small" id="reloadPreview">⟳ Tải lại</button>
+        <a class="btn ghost small" id="openTab" target="_blank" rel="noopener">↗ Tab mới</a>
+      </div>
+      <iframe id="previewFrame" sandbox="allow-scripts allow-forms allow-modals allow-popups"></iframe>
+      <pre class="file-view hidden" id="fileView"><code></code></pre>
+      <div class="empty-preview" id="emptyPreview">Chưa có website nào trong cuộc trò chuyện này.<br>Hãy nhờ AI “build một trang web…”.</div>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

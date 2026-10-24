@@ -1,0 +1,16 @@
+{
+  "name": "CodeMaster AI",
+  "short_name": "CodeMaster",
+  "description": "AI giải bài lập trình thi đấu và làm web: tự chấm, tự stress test, tự sửa. Miễn phí, không cần cài.",
+  "lang": "vi",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0d12",
+  "theme_color": "#0b0d12",
+  "icons": [
+    { "src": "static/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "static/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "static/logo.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

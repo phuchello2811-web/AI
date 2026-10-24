@@ -153,3 +153,22 @@ export async function warmup() {
   await runTests("cpp", "int main() { return 0; }", [{ input: "" }], 2);
   await runTests("python", "pass", [{ input: "" }], 2);
 }
+
+/**
+ * Speed check on the largest input: run `generatorCode` (Python, seed in argv[1]) to build one maximum-size
+ * test, then run the solution on it. Returns {result: "OK" | "TLE" | "RE" | "CE" | "GENERATOR_FAILED", time, size}.
+ */
+export async function perfTest(generatorCode, solution, timeLimit = 2, onStatus) {
+  const gen = await prepare("python", generatorCode, onStatus);
+  onStatus && onStatus("đang sinh test lớn nhất…");
+  const made = await execute(gen, "", 20, ["1"]);
+  if (made.status !== "OK" || !made.stdout.trim()) {
+    return { result: "GENERATOR_FAILED", stderr: truncate(made.stderr || "generator không in ra gì") };
+  }
+  const prog = await prepare(solution.language, solution.code, onStatus);
+  if (prog.compileError) return { result: "CE", compile_error: prog.compileError };
+  onStatus && onStatus(`đang chạy lời giải trên test ${Math.round(made.stdout.length / 1024)} KB…`);
+  const r = await execute(prog, made.stdout, timeLimit);
+  return { result: r.status, time: r.time, size: made.stdout.length, stderr: truncate(r.stderr || "", 1000),
+           input_head: truncate(made.stdout, 300) };
+}

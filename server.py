@@ -241,6 +241,11 @@ def index():
     return FileResponse(ROOT / "index.html")
 
 
+@app.get("/manifest.webmanifest")
+def manifest():
+    return FileResponse(ROOT / "manifest.webmanifest", media_type="application/manifest+json")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=int(os.environ.get("PORT", 8000)))

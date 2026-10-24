@@ -80,6 +80,13 @@ CODE_LANGS = {"cpp": "cpp", "c++": "cpp", "cc": "cpp", "c": "c", "python": "pyth
 ANY_ANSWER_RE = re.compile(r"\bany\b|bất k[ỳì]|nào cũng|nhiều đáp án|multiple (?:answers|solutions)", re.I)
 # Caps for the helper calls: small models sometimes repeat themselves until the context is full.
 MAX_TOKENS = {"extract": 800, "analyze": 700, "generator": 600, "brute": 1000}
+# Likewise for formats that change how the code is judged: they must be visible in the statement itself.
+FORMAT_EVIDENCE = {
+    "interactive": re.compile(r"interactive|tương tác|flush|interactor", re.I),
+    "function_grader": re.compile(r"grader|cài đặt hàm|hàm sau|implement the function|function signature", re.I),
+    "file_io": re.compile(r"\.(inp|in|out|ans)\b", re.I),
+    "multiple_cases_case_x": re.compile(r"case #", re.I),
+}
 TIME_LIMIT_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:giây|s\b|sec|second)", re.I)
 
 _capabilities: dict[str, list[str]] = {}
@@ -187,6 +194,9 @@ def analyze_problem(client, model, statement):
     if not isinstance(analysis, dict):
         return {}
     analysis["topics"] = [t for t in analysis.get("topics", []) if t in knowledge.BY_ID][:4]
+    evidence = FORMAT_EVIDENCE.get(analysis.get("format", ""))
+    if evidence and not evidence.search(statement):
+        analysis["format"] = "stdin"
     for key in ("observations", "edge_cases"):
         analysis[key] = [str(x) for x in analysis.get(key, [])][:4]
     return analysis

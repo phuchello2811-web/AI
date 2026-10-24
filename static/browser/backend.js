@@ -15,16 +15,20 @@ const knowledge = createKnowledge(knowledgeEntries);
 /* ---------- IndexedDB conversation store ---------- */
 
 const db = await new Promise((resolve, reject) => {
-  const req = indexedDB.open("codemaster", 1);
-  req.onupgradeneeded = () => req.result.createObjectStore("convs", { keyPath: "id" });
+  const req = indexedDB.open("codemaster", 2);
+  req.onupgradeneeded = () => {
+    const names = req.result.objectStoreNames;
+    if (!names.contains("convs")) req.result.createObjectStore("convs", { keyPath: "id" });
+    if (!names.contains("lessons")) req.result.createObjectStore("lessons", { keyPath: "id", autoIncrement: true });
+  };
   req.onsuccess = () => resolve(req.result);
   req.onerror = () => reject(req.error);
 });
 
-function tx(mode, fn) {
+function tx(mode, fn, store = "convs") {
   return new Promise((resolve, reject) => {
-    const t = db.transaction("convs", mode);
-    const req = fn(t.objectStore("convs"));
+    const t = db.transaction(store, mode);
+    const req = fn(t.objectStore(store));
     t.oncomplete = () => resolve(req && req.result);
     t.onerror = () => reject(t.error);
   });
@@ -74,8 +78,19 @@ function checkSite(html) {
   });
 }
 
+// What the agent learned: a short note for every problem it solved and verified, recalled for similar ones.
+const MAX_LESSONS = 200;
+const memory = {
+  all: () => tx("readonly", (s) => s.getAll(), "lessons"),
+  async remember(lesson) {
+    await tx("readwrite", (s) => s.add({ ...lesson, at: Date.now() }), "lessons");
+    const keys = await tx("readonly", (s) => s.getAllKeys(), "lessons");
+    for (const key of keys.slice(0, Math.max(0, keys.length - MAX_LESSONS))) await tx("readwrite", (s) => s.delete(key), "lessons");
+  },
+};
+
 const agent = createAgent({
-  llm, judge, knowledge, prompts, checkSite,
+  llm, judge, knowledge, prompts, checkSite, memory,
   saveSite(conv, html) {
     conv.site = html;
     if (siteUrls.has(conv.id)) URL.revokeObjectURL(siteUrls.get(conv.id));

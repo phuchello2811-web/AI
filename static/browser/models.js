@@ -4,10 +4,10 @@
 
 import * as cloud from "./cloud.js";
 
-export const CLOUD = "GPT-OSS-20B";
+export const CLOUD = "cloud";
 export const FALLBACK = "Qwen3.5-4B";
 export const MODELS = [
-  { name: CLOUD, label: "GPT-OSS 20B · máy chủ miễn phí, dùng ngay", provider: "cloud", strong: true },
+  { name: CLOUD, label: "Tự động · MiniMax M2.7 / GPT-OSS 20B (miễn phí, dùng ngay)", provider: "cloud", strong: true },
   { name: "Qwen3.5-9B", label: "Qwen3.5 9B · trong trình duyệt (tải ~6.4 GB)", provider: "local" },
   { name: "Qwen3.5-4B", label: "Qwen3.5 4B · trong trình duyệt (tải ~3.9 GB)", provider: "local" },
   { name: "Qwen2.5-Coder-7B-Instruct", label: "Qwen2.5 Coder 7B · trong trình duyệt (tải ~5.1 GB)", provider: "local" },

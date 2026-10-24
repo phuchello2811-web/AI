@@ -4,28 +4,35 @@
 
 **Dùng ngay: https://phuchello2811-web.github.io/AI/** — mở link là dùng, không cần cài, không cần tài khoản, miễn phí.
 
-- **Dùng ngay, không phải chờ tải:** mặc định dùng model mã nguồn mở **GPT-OSS 20B** (OpenAI) chạy miễn phí trên máy chủ của [Pollinations.ai](https://pollinations.ai). Đây là model suy luận, mạnh ở toán và lập trình thi đấu; ở mức "Tối đa" nó suy luận sâu hơn cho bài khó.
-- **Gói miễn phí trả lời tối đa 1 lần mỗi 30 giây** cho mỗi người dùng. CodeMaster gộp các bước để mỗi bài chỉ cần 2–3 lần gọi, tự xếp hàng và tự thử lại. Ai có khoá Pollinations riêng có thể nhập trong *Cài đặt* để bỏ thời gian chờ.
-- **Không giới hạn, chạy cả khi mất mạng:** chọn model *trong trình duyệt* (Qwen3.5 2B/4B/9B, Qwen2.5 Coder 7B) chạy bằng GPU của máy bạn qua [WebLLM](https://github.com/mlc-ai/web-llm); lần đầu tải 2–6 GB. Khi máy chủ miễn phí không phản hồi, CodeMaster tự chuyển sang model này.
-- **Chấm code ngay trong trình duyệt:** C/C++ biên dịch bằng [Clang WebAssembly](https://github.com/YoWASP/clang), Python chạy bằng [Pyodide](https://pyodide.org). Trình biên dịch được tải sẵn ngầm khi mở trang nên lúc chấm không phải chờ.
-- Lịch sử trò chuyện lưu trong trình duyệt của bạn.
+- **Dùng ngay, không phải tải gì:** chế độ *Tự động* gom nhiều máy chủ AI miễn phí, không cần tài khoản, và mỗi yêu cầu đi tới model mạnh nhất còn lượt:
+  1. **MiniMax M2.7** (qua [LLM7.io](https://llm7.io)), model mã nguồn mở cỡ lớn, mạnh về lập trình, dùng cho bước viết lời giải;
+  2. **GPT-OSS 20B** của OpenAI (qua [Pollinations.ai](https://pollinations.ai) và LLM7), model suy luận;
+  3. **Codestral** (qua LLM7), nhanh, dùng khi các model trên đều hết lượt.
+- **Giới hạn của các gói miễn phí** (đo thực tế): Pollinations trả lời 1 lần mỗi 30 giây và ~1.400 token mỗi lần; LLM7 có hạn mức token mỗi ngày cho mỗi người (MiniMax hết sau khoảng 2 câu trả lời dài). CodeMaster tự xếp hàng, tự đổi máy chủ khi một máy chủ hết lượt (và nhớ thời điểm nó mở lại), và tự **viết tiếp nhiều lượt** khi câu trả lời bị cắt. Có khoá riêng (Pollinations, LLM7) thì nhập trong *Cài đặt* để bỏ giới hạn.
+- **Không giới hạn, chạy cả khi mất mạng:** chọn model *trong trình duyệt* (Qwen3.5 2B/4B/9B, Qwen2.5 Coder 7B) chạy bằng GPU của máy bạn qua [WebLLM](https://github.com/mlc-ai/web-llm); lần đầu tải 2–6 GB. Chỉ dùng khi chính bạn chọn, hoặc khi mọi máy chủ miễn phí đều không phản hồi.
+- **Chấm code ngay trong trình duyệt:** C/C++ biên dịch bằng [Clang WebAssembly](https://github.com/YoWASP/clang), Python chạy bằng [Pyodide](https://pyodide.org); được tải sẵn ngầm khi mở trang.
+- **Ghi nhớ bài đã giải:** mỗi bài AI giải đúng và đã kiểm chứng được lưu (ý tưởng chính) trong trình duyệt của bạn; gặp bài tương tự, AI được nhắc lại kinh nghiệm đó.
+- Có thể cài như ứng dụng (PWA) và có ảnh xem trước khi chia sẻ link.
+
+> Về "huấn luyện model": huấn luyện hay tinh chỉnh một model ngôn ngữ cần cụm GPU chạy nhiều ngày, chi phí từ hàng nghìn đô trở lên, không làm được trong dự án này. CodeMaster dùng các model mã nguồn mở đã được huấn luyện sẵn ở mức cao nhất hiện có miễn phí, và tăng độ chính xác bằng quy trình: phân tích, tra kiến thức, chấm, stress test, kiểm tra tốc độ, tự sửa, ghi nhớ.
 
 ## Cách nó làm việc
 
 **Giải bài tin** (VOI, IOI, Google Code Jam / Kick Start, Codeforces…)
 1. Đọc đề và lấy các test ví dụ (bỏ test nào không có trong đề, để tránh test bịa).
 2. **Phân tích đề**: định dạng (stdin, file `.INP/.OUT`, `Case #x:` của Code Jam, tương tác, cài hàm cho grader IOI), giới hạn thời gian, độ phức tạp mục tiêu suy ra từ giới hạn n, quan sát chính, trường hợp biên.
-3. **Tra thư viện kiến thức** (68 chủ đề: DP và các tối ưu DP, đồ thị, luồng, cấu trúc dữ liệu kể cả persistent/treap/Li Chao, xâu kể cả suffix automaton, toán số học và tổ hợp nâng cao, hình học, chiến thuật IOI/Code Jam, và 9 chủ đề làm web) và đưa các mục liên quan vào prompt.
+3. **Tra thư viện kiến thức** (79 chủ đề: DP và các tối ưu DP, slope trick, CDQ, đồ thị, luồng, cây Kruskal, liên thông động, cấu trúc dữ liệu kể cả persistent/treap/Li Chao, xâu kể cả suffix automaton và cây palindrome, toán (Gauss, cơ sở XOR, Möbius, Miller–Rabin), tổ hợp, hình học, chiến thuật IOI/Code Jam, và 13 chủ đề làm web) cùng **các bài tương tự đã giải trước đây**, rồi đưa vào prompt.
 4. Model giải theo **quy trình tư duy cố định**: chốt độ phức tạp, thử tay, cân nhắc ít nhất hai hướng, tìm phản ví dụ cho tham lam, liệt kê trường hợp biên, trace code trên test mẫu.
 5. Biên dịch và chấm trên test mẫu (AC / WA / TLE / RE / CE).
 6. **Stress test** (mức Tối đa): AI viết lời giải trâu và bộ sinh test nhỏ, rồi so sánh 150 test ngẫu nhiên, bắt được lỗi mà test mẫu bỏ sót.
-7. Sai thì gửi lỗi về cho model tự sửa; hết lượt sửa thì yêu cầu **nghĩ lại từ đầu với hướng khác** (mức Tối đa).
+7. **Kiểm tra tốc độ** (mức Tối đa): AI viết bộ sinh test lớn nhất theo giới hạn đề (trường hợp xấu nhất); lời giải phải chạy kịp thời gian, bắt được các lời giải đúng nhưng chậm (TLE).
+8. Sai thì gửi lỗi về cho model tự sửa; hết lượt sửa thì yêu cầu **nghĩ lại từ đầu với hướng khác** (mức Tối đa).
 
 | Mức suy nghĩ | Gồm |
 |---|---|
 | Nhanh | Tra kiến thức + giải + chấm mẫu, sửa 2 lần |
 | Kỹ (mặc định) | + phân tích đề, sửa 3 lần |
-| Tối đa | + stress test với lời giải trâu, + nghĩ lại từ đầu khi bế tắc |
+| Tối đa | + suy luận sâu nhất, stress test, kiểm tra tốc độ trên test lớn nhất, nghĩ lại từ đầu khi bế tắc |
 
 Tab **Thư viện** trong giao diện cho xem và tìm toàn bộ kiến thức này.
 

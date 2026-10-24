@@ -7,6 +7,17 @@
 <meta name="description" content="Trợ lý AI miễn phí giải bài lập trình thi đấu (VOI, IOI, Code Jam) và làm website: tự chấm, tự stress test, tự sửa. Không cần cài đặt.">
 <meta name="theme-color" content="#0b0d12">
 <link rel="icon" type="image/svg+xml" href="static/logo.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="static/icons/icon-32.png">
+<link rel="apple-touch-icon" href="static/icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CodeMaster AI">
+<meta property="og:description" content="AI giải bài lập trình thi đấu (VOI, IOI, Code Jam) và làm web: tự chấm, tự stress test, tự sửa. Miễn phí, không cần cài.">
+<meta property="og:url" content="https://phuchello2811-web.github.io/AI/">
+<meta property="og:image" content="https://phuchello2811-web.github.io/AI/static/icons/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
@@ -202,9 +213,12 @@
 <dialog class="dialog" id="settingsDialog">
   <form method="dialog">
     <h2>Cài đặt</h2>
-    <p class="muted">Model mặc định GPT-OSS 20B chạy miễn phí trên máy chủ của Pollinations.ai, không cần tài khoản; gói miễn phí trả lời tối đa 1 lần mỗi 30 giây, CodeMaster tự xếp hàng. Nếu có khoá Pollinations riêng, dán vào đây để bỏ thời gian chờ. Khoá chỉ lưu trong trình duyệt này.</p>
+    <p class="muted">Chế độ "Tự động" dùng model miễn phí mạnh nhất còn lượt: MiniMax M2.7 và GPT-OSS 20B qua LLM7.io, GPT-OSS 20B qua Pollinations.ai, không cần tài khoản. Gói miễn phí có giới hạn (Pollinations: 1 câu trả lời mỗi 30 giây; LLM7: hạn mức token mỗi ngày), CodeMaster tự xếp hàng và tự đổi máy chủ. Có khoá riêng thì dán vào đây để bỏ giới hạn; khoá chỉ lưu trong trình duyệt này.</p>
     <label class="field">Khoá Pollinations (không bắt buộc)
       <input type="password" id="pollenKey" autocomplete="off" placeholder="sk_…">
+    </label>
+    <label class="field">Khoá LLM7 (không bắt buộc, cho MiniMax M2.7)
+      <input type="password" id="llm7Key" autocomplete="off" placeholder="token từ token.llm7.io">
     </label>
     <p class="muted">Các model "trong trình duyệt" chạy ngay trên máy bạn bằng WebGPU: không giới hạn, dùng được khi mất mạng, nhưng lần đầu phải tải 2–6 GB. Khi máy chủ miễn phí không phản hồi, CodeMaster tự chuyển sang model này.</p>
     <div class="dialog-actions">

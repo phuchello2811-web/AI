@@ -299,6 +299,7 @@ class Turn {
         break;
       case "usage":
         this.tokens.input += ev.input; this.tokens.output += ev.output; this.tokens.speed = ev.speed || this.tokens.speed;
+        if (ev.model) (this.tokens.models ||= new Set()).add(ev.model);
         break;
       case "notice":
       case "error":
@@ -322,7 +323,8 @@ class Turn {
     }
     if (this.tokens.output) {
       this.body.insertAdjacentHTML("beforeend",
-        `<div class="usage-line">${this.tokens.output.toLocaleString()} token viết ra · ${this.tokens.speed} token/giây</div>`);
+        `<div class="usage-line">${this.tokens.models ? `${esc([...this.tokens.models].join(", "))} · ` : ""}`
+        + `${this.tokens.output.toLocaleString()} token viết ra · ${this.tokens.speed} token/giây</div>`);
     }
   }
 
@@ -330,6 +332,7 @@ class Turn {
     const titles = {
       run_code: ["cpu", "Chạy thử code"], stress_test: ["dice", "Stress test"], save_web_files: ["layout", "Lưu và chạy thử website"],
       extract_tests: ["list", "Lấy test mẫu từ đề"], analyze_problem: ["compass", "Phân tích đề"], knowledge: ["book", "Tra thư viện kiến thức"],
+      perf_test: ["zap", "Kiểm tra tốc độ trên test lớn nhất"],
     };
     const busy = { extract_tests: "đang đọc đề…", analyze_problem: "đang phân tích…", knowledge: "đang tra…",
                    stress_test: "đang viết lời giải trâu và sinh test…", save_web_files: "đang chạy thử trang…" };
@@ -391,9 +394,9 @@ class Turn {
       body.innerHTML = `<p>${esc(out.summary)}</p>${list("Quan sát", out.observations)}${list("Trường hợp biên", out.edge_cases)}`
         + (out.unique_answer === false ? `<p class="muted">AI cho rằng đề chấp nhận nhiều đáp án.</p>` : "");
     } else if (ev.name === "knowledge") {
-      const topics = out.topics || [];
-      setBadge("OK", `${topics.length} chủ đề`);
-      sum.textContent = topics.map((t) => t.title).join(" · ");
+      const topics = out.topics || [], lessons = out.lessons || [];
+      setBadge("OK", `${topics.length} chủ đề` + (lessons.length ? ` · ${lessons.length} bài cũ` : ""));
+      sum.textContent = [...topics.map((t) => t.title), ...lessons.map((l) => `Đã giải: ${l}`)].join(" · ");
       body.innerHTML = topics.map((t) => `<button class="btn ghost small" data-topic="${esc(t.id)}">${icon("book")}${esc(t.title)}</button>`).join(" ");
       body.querySelectorAll("[data-topic]").forEach((b) => (b.onclick = () => showLibrary(b.dataset.topic)));
     } else if (ev.name === "extract_tests") {
@@ -410,6 +413,11 @@ class Turn {
       sum.textContent = out.result === "ALL_PASSED" ? `${out.iterations_passed} test ngẫu nhiên đều khớp` : `lệch ở seed ${out.seed ?? "?"}`;
       body.insertAdjacentHTML("beforeend", `<pre>${esc(JSON.stringify(out, null, 2))}</pre>`);
       if (out.result !== "ALL_PASSED") t.el.classList.add("open");
+    } else if (ev.name === "perf_test") {
+      setBadge(out.result === "OK" ? "OK" : out.result, out.result === "OK" ? `${out.time}s` : out.result);
+      sum.textContent = out.result === "GENERATOR_FAILED" ? "AI viết bộ sinh test lớn bị lỗi, bỏ qua"
+        : `input ${Math.round((out.size || 0) / 1024)} KB · giới hạn ${out.time_limit}s`;
+      body.innerHTML = `<pre>${esc(out.input_head || out.stderr || out.compile_error || "")}</pre>`;
     } else if (ev.name === "save_web_files") {
       const errors = out.errors || [];
       setBadge(errors.length ? "WA" : "OK", errors.length ? `${errors.length} lỗi` : "Chạy tốt");
@@ -801,9 +809,10 @@ els.mode.onchange = () => savePref("mode", els.mode.value);
 els.model.onchange = () => { savePref("model", els.model.value); updateThinkToggle(); };
 
 const settings = $("#settingsDialog");
-$("#settingsBtn").onclick = () => { $("#pollenKey").value = loadPref("pollenKey") || ""; settings.showModal(); };
+const KEY_FIELDS = ["pollenKey", "llm7Key"];
+$("#settingsBtn").onclick = () => { KEY_FIELDS.forEach((k) => ($(`#${k}`).value = loadPref(k) || "")); settings.showModal(); };
 settings.addEventListener("close", () => {
-  if (settings.returnValue === "save") savePref("pollenKey", $("#pollenKey").value.trim());
+  if (settings.returnValue === "save") KEY_FIELDS.forEach((k) => savePref(k, $(`#${k}`).value.trim()));
 });
 els.think.onchange = () => savePref("think", els.think.checked ? "1" : "0");
 

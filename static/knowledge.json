@@ -1099,5 +1099,164 @@
    "dom"
   ],
   "body": "- Đặt `<script>` cuối `<body>` (hoặc `defer`) để DOM đã sẵn sàng; kiểm tra phần tử tồn tại trước khi dùng.\n- Ủy quyền sự kiện cho danh sách động: `list.addEventListener(\"click\", e => { const item = e.target.closest(\"[data-id]\"); ... })`.\n- Không dùng biến chưa khai báo; `const`/`let`; tránh `innerHTML` với dữ liệu người dùng (dùng `textContent`).\n- Thư viện từ CDN phải ghi rõ phiên bản (ví dụ `@4.4.1`)."
+ },
+ {
+  "id": "xor_basis",
+  "title": "Cơ sở XOR (linear basis)",
+  "keys": [
+   "xor",
+   "xor lon nhat cua tap con",
+   "linear basis",
+   "co so tuyen tinh",
+   "tap con xor",
+   "maximum xor subset",
+   "gauss xor"
+  ],
+  "body": "Mỗi số chèn vào cơ sở tối đa 60 phần tử; trả lời XOR lớn nhất của một tập con, kiểm tra một số có biểu diễn được không, đếm số giá trị XOR khác nhau (= 2^rank).\n```cpp\nstruct XorBasis { long long b[61] = {}; int rank = 0;\n  bool insert(long long x) { for (int i = 60; i >= 0; --i) if (x >> i & 1) { if (!b[i]) { b[i] = x; ++rank; return true; } x ^= b[i]; } return false; }\n  long long maxXor() { long long r = 0; for (int i = 60; i >= 0; --i) r = max(r, r ^ b[i]); return r; } };\n```\n- Trên đường đi của cây/đoạn: cơ sở \"tiền tố\" giữ phần tử có chỉ số lớn nhất ở mỗi bit."
+ },
+ {
+  "id": "gauss",
+  "title": "Khử Gauss (hệ phương trình, modulo p)",
+  "keys": [
+   "gauss",
+   "he phuong trinh",
+   "khu gauss",
+   "ma tran nghich dao",
+   "dinh thuc",
+   "determinant",
+   "linear equations",
+   "hang ma tran"
+  ],
+  "body": "```cpp\n// Giải A x = b mod p (p nguyên tố). a là ma trận n × (m+1) (cột cuối là b). Trả về hạng; -1 nếu vô nghiệm.\nlong long pw(long long a, long long e, long long p) { long long r = 1; a %= p; for (; e; e >>= 1, a = a * a % p) if (e & 1) r = r * a % p; return r; }\nint gauss(vector<vector<long long>>& a, long long p) { int n = a.size(), m = a[0].size() - 1, row = 0;\n  for (int col = 0; col < m && row < n; ++col) { int sel = row; while (sel < n && !a[sel][col]) ++sel; if (sel == n) continue;\n    swap(a[sel], a[row]); long long inv = pw(a[row][col], p - 2, p);\n    for (auto& v : a[row]) v = v * inv % p;\n    for (int i = 0; i < n; ++i) if (i != row && a[i][col]) { long long f = a[i][col]; for (int j = col; j <= m; ++j) a[i][j] = ((a[i][j] - f * a[row][j]) % p + p) % p; }\n    ++row; }\n  for (int i = row; i < n; ++i) if (a[i][m]) return -1;\n  return row; }\n```\n- Định thức: khử thành tam giác, nhân đường chéo, đổi dấu khi đổi hàng. Số thực: chọn phần tử chốt có trị tuyệt đối lớn nhất."
+ },
+ {
+  "id": "eertree",
+  "title": "Cây palindrome (eertree)",
+  "keys": [
+   "eertree",
+   "palindromic tree",
+   "cay palindrome",
+   "so palindrome khac nhau",
+   "dem xau con doi xung",
+   "palindrome"
+  ],
+  "body": "O(n) đỉnh, mỗi đỉnh là một palindrome khác nhau; đếm số palindrome khác nhau, số lần xuất hiện, palindrome dài nhất kết thúc tại mỗi vị trí.\n```cpp\nstruct Eertree { vector<array<int,26>> nx; vector<int> len, link, cnt; string s; int last = 1;\n  Eertree() { nx.assign(2, {}); len = {-1, 0}; link = {0, 0}; cnt = {0, 0}; }\n  int find(int v, int i) { while (i - len[v] - 1 < 0 || s[i - len[v] - 1] != s[i]) v = link[v]; return v; }\n  void add(char ch) { s += ch; int i = s.size() - 1, c = ch - 'a', v = find(last, i);\n    if (!nx[v][c]) { int u = len.size(); len.push_back(len[v] + 2); nx.push_back({}); cnt.push_back(0);\n      link.push_back(len[u] == 1 ? 1 : nx[find(link[v], i)][c]); nx[v][c] = u; }\n    last = nx[v][c]; ++cnt[last]; }\n  // số palindrome khác nhau = len.size() - 2; số lần xuất hiện: cộng cnt theo link từ đỉnh dài về ngắn\n};\n```"
+ },
+ {
+  "id": "cdq",
+  "title": "Chia để trị CDQ (offline 3 chiều)",
+  "keys": [
+   "cdq",
+   "chia de tri offline",
+   "ba chieu",
+   "3d partial order",
+   "dem cap thoa ba dieu kien",
+   "divide and conquer offline"
+  ],
+  "body": "Đếm cặp (i, j) với a_i ≤ a_j, b_i ≤ b_j, c_i ≤ c_j: sort theo a; solve(l, r) = solve(l, m), solve(m+1, r), rồi xét đóng góp của nửa trái lên nửa phải bằng cách sort hai nửa theo b và dùng Fenwick theo c. O(n log² n).\n- Cũng dùng cho DP có chuyển trạng thái phụ thuộc thứ tự thời gian (cập nhật nửa trái → truy vấn nửa phải)."
+ },
+ {
+  "id": "slope_trick",
+  "title": "Slope trick (hàm lồi tuyến tính từng khúc)",
+  "keys": [
+   "slope trick",
+   "ham loi",
+   "khong giam",
+   "chi phi nho nhat de day tang",
+   "make array non decreasing",
+   "|a_i - b_i|",
+   "tri tuyet doi"
+  ],
+  "body": "Giữ hàm lồi qua các điểm gãy trong heap. Ví dụ: chi phí nhỏ nhất Σ|a_i − b_i| để b không giảm:\n```cpp\npriority_queue<long long> pq; long long ans = 0;\nfor (long long x : a) { pq.push(x); if (pq.top() > x) { ans += pq.top() - x; pq.pop(); pq.push(x); } }\n```\nDãy tăng ngặt: thay a_i bằng a_i − i."
+ },
+ {
+  "id": "dynamic_connectivity",
+  "title": "Liên thông động offline (DSU rollback + cây đoạn thời gian)",
+  "keys": [
+   "them xoa canh",
+   "xoa canh",
+   "dynamic connectivity",
+   "lien thong dong",
+   "rollback",
+   "segment tree on time",
+   "offline"
+  ],
+  "body": "Mỗi cạnh tồn tại trên một khoảng thời gian [l, r): gắn nó vào O(log T) nút của segment tree theo thời gian; DFS cây, vào nút thì `unite` các cạnh của nút, ra thì rollback. DSU **không nén đường**, hợp theo kích thước, lưu stack thay đổi. O((m + q) log T log n).\n```cpp\nstruct DSU { vector<int> p, sz; vector<pair<int,int>> st; DSU(int n): p(n), sz(n, 1) { iota(p.begin(), p.end(), 0); }\n  int find(int x) { while (p[x] != x) x = p[x]; return x; }\n  void unite(int a, int b) { a = find(a); b = find(b); if (a == b) { st.push_back({-1, -1}); return; } if (sz[a] < sz[b]) swap(a, b); p[b] = a; sz[a] += sz[b]; st.push_back({a, b}); }\n  void rollback() { auto [a, b] = st.back(); st.pop_back(); if (a < 0) return; p[b] = b; sz[a] -= sz[b]; } };\n```"
+ },
+ {
+  "id": "kruskal_tree",
+  "title": "Cây Kruskal (DSU reconstruction tree)",
+  "keys": [
+   "kruskal reconstruction",
+   "cay kruskal",
+   "canh lon nhat tren duong di",
+   "bottleneck",
+   "minimax path",
+   "chi di qua canh co trong so"
+  ],
+  "body": "Khi Kruskal hợp hai thành phần bằng cạnh trọng số w, tạo đỉnh mới giá trị w làm cha của hai gốc. Được cây 2n − 1 đỉnh:\n- Cạnh lớn nhất trên đường đi nhỏ nhất giữa u, v = giá trị của LCA(u, v).\n- Các đỉnh đi tới được từ u chỉ dùng cạnh ≤ x = lá trong cây con của tổ tiên cao nhất có giá trị ≤ x (nhảy nhị phân), kết hợp Euler tour để truy vấn trên tập lá."
+ },
+ {
+  "id": "web_tailwind",
+  "title": "Tailwind CSS qua CDN",
+  "kind": "web",
+  "keys": [
+   "tailwind",
+   "utility",
+   "css nhanh",
+   "landing page",
+   "giao dien nhanh"
+  ],
+  "body": "```html\n<script src=\"https://cdn.tailwindcss.com/3.4.16\"></script>\n<script>tailwind.config = { darkMode: \"media\", theme: { extend: { colors: { brand: \"#6d8bff\" } } } };</script>\n```\n- Bố cục: `max-w-6xl mx-auto px-4`, lưới `grid gap-6 sm:grid-cols-2 lg:grid-cols-3`, thẻ `rounded-2xl bg-white/5 p-6 shadow`.\n- Chỉ dùng khi người dùng muốn nhanh hoặc yêu cầu Tailwind; trang nhỏ, tự viết CSS với biến vẫn gọn hơn."
+ },
+ {
+  "id": "web_threejs",
+  "title": "3D với Three.js",
+  "kind": "web",
+  "keys": [
+   "3d",
+   "three",
+   "threejs",
+   "webgl",
+   "xoay",
+   "mo hinh",
+   "khong gian"
+  ],
+  "body": "```html\n<script type=\"importmap\">{ \"imports\": { \"three\": \"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js\" } }</script>\n<script type=\"module\">\nimport * as THREE from \"three\";\nconst scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 100);\nconst renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(devicePixelRatio); renderer.setSize(innerWidth, innerHeight);\ndocument.body.appendChild(renderer.domElement); camera.position.z = 4;\nconst mesh = new THREE.Mesh(new THREE.TorusKnotGeometry(1, .3, 128, 16), new THREE.MeshStandardMaterial({ color: 0x6d8bff }));\nscene.add(mesh, new THREE.HemisphereLight(0xffffff, 0x222244, 2));\nrenderer.setAnimationLoop(() => { mesh.rotation.y += .01; renderer.render(scene, camera); });\naddEventListener(\"resize\", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });\n</script>\n```"
+ },
+ {
+  "id": "web_react_nobuild",
+  "title": "Ứng dụng nhiều trạng thái: Preact + htm không cần build",
+  "kind": "web",
+  "keys": [
+   "react",
+   "preact",
+   "component",
+   "ung dung",
+   "app",
+   "state",
+   "trang thai",
+   "quan ly",
+   "spa"
+  ],
+  "body": "Một file HTML, không cần cài đặt:\n```html\n<script type=\"module\">\nimport { h, render } from \"https://esm.sh/preact@10.24.3\";\nimport { useState } from \"https://esm.sh/preact@10.24.3/hooks\";\nimport htm from \"https://esm.sh/htm@3.1.1\";\nconst html = htm.bind(h);\nfunction App() { const [items, setItems] = useState([]); const [text, setText] = useState(\"\");\n  return html`<form onSubmit=${(e) => { e.preventDefault(); if (text.trim()) setItems([...items, text]); setText(\"\"); }}>\n    <input value=${text} onInput=${(e) => setText(e.target.value)} /><button>Thêm</button></form>\n    <ul>${items.map((t, i) => html`<li key=${i}>${t}</li>`)}</ul>`; }\nrender(html`<${App} />`, document.getElementById(\"app\"));\n</script>\n```\nDùng khi giao diện có nhiều trạng thái thay đổi; trang tĩnh đơn giản thì JavaScript thuần là đủ."
+ },
+ {
+  "id": "web_pwa",
+  "title": "Favicon, icon, chia sẻ mạng xã hội, PWA",
+  "kind": "web",
+  "keys": [
+   "favicon",
+   "icon",
+   "logo",
+   "pwa",
+   "cai dat ung dung",
+   "manifest",
+   "chia se",
+   "og",
+   "facebook",
+   "offline"
+  ],
+  "body": "- Favicon SVG nhúng trực tiếp: `<link rel=\"icon\" href=\"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>…</svg>\">`.\n- Ảnh xem trước khi chia sẻ: `<meta property=\"og:title\">`, `og:description`, `og:image` (1200 × 630), `<meta name=\"twitter:card\" content=\"summary_large_image\">`.\n- PWA: `manifest.webmanifest` (name, icons 192/512, start_url, display \"standalone\", theme_color) + service worker cache tài nguyên tĩnh.\n- Logo tự vẽ bằng SVG (hình học đơn giản, 1–2 màu) đẹp và nét hơn ảnh bitmap."
  }
 ]

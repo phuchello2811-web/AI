@@ -15,15 +15,27 @@ const PROVIDERS = {
   "gpt-oss": { label: "GPT-OSS 20B", url: POLLINATIONS, model: "openai", keyPref: "pollenKey", gapMs: 31_000,
                schema: true, effort: true, extra: { private: true } },
   "gpt-oss-llm7": { label: "GPT-OSS 20B", url: LLM7, model: "gpt-oss:20b", keyPref: "llm7Key", effort: true },
+  nemotron: { label: "Nemotron 3 Nano 30B", url: LLM7, model: "nemotron-3-nano:30b", keyPref: "llm7Key" },
   codestral: { label: "Codestral", url: LLM7, model: "codestral-latest", keyPref: "llm7Key" },
+  "mistral-nemo": { label: "Mistral Nemo", url: LLM7, model: "mistral-Nemo-Instruct-2407", keyPref: "llm7Key" },
 };
+/** Models people can pick by name in the model menu (besides "auto"). */
+export const FREE_MODELS = [
+  { id: "minimax", label: "MiniMax M2.7", note: "Mạnh nhất trong nhóm miễn phí, ít lượt mỗi ngày" },
+  { id: "gpt-oss", label: "GPT-OSS 20B", note: "Model suy luận của OpenAI, 1 câu mỗi 30 giây" },
+  { id: "nemotron", label: "Nemotron 3 Nano 30B", note: "Model suy luận của NVIDIA" },
+  { id: "codestral", label: "Codestral", note: "Chuyên code, trả lời nhanh" },
+  { id: "mistral-nemo", label: "Mistral Nemo", note: "Nhẹ, nhanh, hợp hỏi đáp ngắn" },
+];
 // Strongest first. The main answer may use MiniMax; helper requests leave its small daily quota alone.
 const ROUTES = {
-  main: ["minimax", "gpt-oss", "gpt-oss-llm7", "codestral"],
-  helper: ["gpt-oss", "gpt-oss-llm7", "codestral"],
+  main: ["minimax", "gpt-oss", "gpt-oss-llm7", "nemotron", "codestral", "mistral-nemo"],
+  helper: ["gpt-oss", "gpt-oss-llm7", "nemotron", "codestral", "mistral-nemo"],
 };
 const ACCEPTABLE_WAIT_MS = 35_000; // wait this long for a stronger model rather than drop to a weaker one
 const LONG_BLOCK_MS = 10 * 60_000; // blocks longer than this (daily quotas) are remembered across reloads
+// Quotas reopen at uneven times, so a long block is retried after at most this long.
+const MAX_BLOCK_MS = 3 * 3600_000;
 const MAX_ATTEMPTS = 8;
 // Free tiers cut replies short, so long answers are written in several replies, each continuing the last.
 const MAX_CONTINUATIONS = 6;
@@ -42,6 +54,7 @@ function readyAt(id) {
 }
 
 function block(id, ms) {
+  ms = Math.min(ms, MAX_BLOCK_MS);
   const until = Date.now() + ms;
   state[id] = { nextAt: Math.max(until, readyAt(id)) };
   if (ms > LONG_BLOCK_MS) try { localStorage.setItem("cm." + blockKey(id), String(until)); } catch {}
@@ -54,10 +67,21 @@ const sleep = (ms, signal) => new Promise((resolve, reject) => {
   signal && signal.addEventListener("abort", () => { clearTimeout(t); reject(new DOMException("stopped", "AbortError")); }, { once: true });
 });
 
-/** The provider to use next: the strongest one ready soon enough, else the one ready soonest. */
-function pick(route) {
+/** When each pickable model can answer again (0 = now), for the model menu. */
+export function status() {
+  return Object.fromEntries(FREE_MODELS.map((m) => [m.id, Math.max(0, readyAt(m.id) - Date.now())]));
+}
+
+/**
+ * The provider to use next: the strongest one ready soon enough, else the one ready soonest. `pin` puts one
+ * provider first; `avoid` skips providers with that label (to get a second opinion from another model).
+ */
+function pick(route, pin, avoid) {
   const now = Date.now();
-  const open = ROUTES[route].filter((id) => readyAt(id) - now < LONG_BLOCK_MS);
+  let order = ROUTES[route];
+  if (pin && PROVIDERS[pin]) order = [pin, ...order.filter((id) => id !== pin)];
+  const others = order.filter((id) => PROVIDERS[id].label !== avoid);
+  const open = (others.length ? others : order).filter((id) => readyAt(id) - now < LONG_BLOCK_MS);
   if (!open.length) return null;
   return open.find((id) => readyAt(id) - now <= ACCEPTABLE_WAIT_MS)
     || open.reduce((a, b) => (readyAt(a) <= readyAt(b) ? a : b));
@@ -105,7 +129,7 @@ export async function* chat(messages, opts = {}) {
 }
 
 /** Services without strict JSON schemas get the schema as an instruction instead. */
-function withSchemaInstruction(messages, schema) {
+export function withSchemaInstruction(messages, schema) {
   const note = `\n\nTrả lời CHỈ bằng một đối tượng JSON hợp lệ (không thêm chữ nào khác) theo JSON Schema sau:\n${JSON.stringify(schema)}`;
   const out = messages.map((m) => ({ ...m }));
   const sys = out.find((m) => m.role === "system");
@@ -114,14 +138,18 @@ function withSchemaInstruction(messages, schema) {
 }
 
 /** One reply from the best available service; returns {finish, content, reasoning}. */
-async function* request(messages, { schema = null, maxTokens = 0, effort = "medium", route = "main", signal } = {}, dropFence = false) {
+async function* request(messages, { schema = null, maxTokens = 0, effort = "medium", route = "main", pin = null, avoid = null, signal } = {}, dropFence = false) {
   // Structured replies must fit in one short reply (reasoning included), so they think briefly.
   if (schema) effort = "low";
-  let lastError = "";
+  let lastError = "", substituted = false;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const id = pick(route);
+    const id = pick(route, pin, avoid);
     if (!id) break;
     const p = PROVIDERS[id];
+    if (pin && id !== pin && PROVIDERS[pin] && !substituted) {
+      substituted = true;
+      yield { notice: `${PROVIDERS[pin].label} đang hết lượt miễn phí, tạm dùng ${p.label} cho câu trả lời này.` };
+    }
     const key = pref(p.keyPref);
     while (Date.now() < readyAt(id)) {
       yield { wait: Math.ceil((readyAt(id) - Date.now()) / 1000) };

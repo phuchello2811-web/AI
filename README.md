@@ -4,15 +4,17 @@
 
 **Dùng ngay: https://phuchello2811-web.github.io/AI/** — mở link là dùng, không cần cài, không cần tài khoản, miễn phí.
 
-- **Dùng ngay, không phải tải gì:** chế độ *Tự động* gom nhiều máy chủ AI miễn phí, không cần tài khoản, và mỗi yêu cầu đi tới model mạnh nhất còn lượt:
-  1. **MiniMax M2.7** (qua [LLM7.io](https://llm7.io)), model mã nguồn mở cỡ lớn, mạnh về lập trình, dùng cho bước viết lời giải;
-  2. **GPT-OSS 20B** của OpenAI (qua [Pollinations.ai](https://pollinations.ai) và LLM7), model suy luận;
-  3. **Codestral** (qua LLM7), nhanh, dùng khi các model trên đều hết lượt.
-- **Giới hạn của các gói miễn phí** (đo thực tế): Pollinations trả lời 1 lần mỗi 30 giây và ~1.400 token mỗi lần; LLM7 có hạn mức token mỗi ngày cho mỗi người (MiniMax hết sau khoảng 2 câu trả lời dài). CodeMaster tự xếp hàng, tự đổi máy chủ khi một máy chủ hết lượt (và nhớ thời điểm nó mở lại), và tự **viết tiếp nhiều lượt** khi câu trả lời bị cắt. Có khoá riêng (Pollinations, LLM7) thì nhập trong *Cài đặt* để bỏ giới hạn.
+- **Dùng ngay, không phải tải gì:** nhóm model miễn phí, không cần tài khoản. Chế độ *Tự động* gửi mỗi yêu cầu tới model mạnh nhất còn lượt, hoặc chọn đích danh trong menu model:
+  - **MiniMax M2.7** (qua [LLM7.io](https://llm7.io)), mạnh nhất trong nhóm miễn phí;
+  - **GPT-OSS 20B** của OpenAI (qua [Pollinations.ai](https://pollinations.ai) và LLM7), model suy luận;
+  - **Nemotron 3 Nano 30B** (NVIDIA), **Codestral** và **Mistral Nemo** (Mistral).
+- **Model hàng đầu qua [Puter](https://puter.com)** (đăng nhập tài khoản Puter miễn phí, dùng theo hạn mức hằng tháng của chính bạn, trang web không tốn phí): Claude Sonnet 5.5, GPT-5.6 Terra, **Qwen3.8 Max**, DeepSeek V4 Pro, Gemini 3.8 Flash, Kimi K2.7 Code, GLM-5.3, MiniMax M3. Các bước phụ dùng Qwen3.8 Flash cho tiết kiệm hạn mức. Puter lỗi thì tự quay về nhóm miễn phí.
+- **Phối hợp nhiều model:** khi một model sửa mãi không đúng, bước "nghĩ lại từ đầu" giao cho **một model khác** để có góc nhìn mới.
+- **Giới hạn của các gói miễn phí** (đo thực tế): Pollinations trả lời 1 lần mỗi 30 giây và ~1.400 token mỗi lần; LLM7 có hạn mức token mỗi ngày cho từng model (MiniMax hết sau khoảng 2 câu trả lời dài). CodeMaster tự xếp hàng, tự đổi model khi một model hết lượt (menu model hiện trạng thái "sẵn sàng / chờ / hết lượt đến…"), và tự **viết tiếp nhiều lượt** khi câu trả lời bị cắt. Có khoá riêng (Pollinations, LLM7) thì nhập trong *Cài đặt* để bỏ giới hạn.
 - **Không giới hạn, chạy cả khi mất mạng:** chọn model *trong trình duyệt* (Qwen3.5 2B/4B/9B, Qwen2.5 Coder 7B) chạy bằng GPU của máy bạn qua [WebLLM](https://github.com/mlc-ai/web-llm); lần đầu tải 2–6 GB. Chỉ dùng khi chính bạn chọn, hoặc khi mọi máy chủ miễn phí đều không phản hồi.
 - **Chấm code ngay trong trình duyệt:** C/C++ biên dịch bằng [Clang WebAssembly](https://github.com/YoWASP/clang), Python chạy bằng [Pyodide](https://pyodide.org); được tải sẵn ngầm khi mở trang.
 - **Ghi nhớ bài đã giải:** mỗi bài AI giải đúng và đã kiểm chứng được lưu (ý tưởng chính) trong trình duyệt của bạn; gặp bài tương tự, AI được nhắc lại kinh nghiệm đó.
-- Có thể cài như ứng dụng (PWA) và có ảnh xem trước khi chia sẻ link.
+- Giao diện sáng/tối, hiển thị công thức toán (KaTeX), tìm kiếm cuộc trò chuyện; cài được như ứng dụng (PWA), có ảnh xem trước khi chia sẻ link.
 
 > Về "huấn luyện model": huấn luyện hay tinh chỉnh một model ngôn ngữ cần cụm GPU chạy nhiều ngày, chi phí từ hàng nghìn đô trở lên, không làm được trong dự án này. CodeMaster dùng các model mã nguồn mở đã được huấn luyện sẵn ở mức cao nhất hiện có miễn phí, và tăng độ chính xác bằng quy trình: phân tích, tra kiến thức, chấm, stress test, kiểm tra tốc độ, tự sửa, ghi nhớ.
 

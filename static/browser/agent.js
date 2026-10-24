@@ -298,7 +298,7 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite, checkSit
   let lastLooped = false;   // whether the latest streamReply was cut off for repeating itself
 
   const chatOpts = (extra) => ({ model: ctx.model, effort: REASONING[ctx.effort] || "medium", think: ctx.think,
-    signal: ctx.signal, ...extra });
+    avoid: ctx.avoid, signal: ctx.signal, ...extra });
 
   async function* streamReply(system, messages) {
     const budget = ctx.strong ? STRONG_HISTORY_CHARS : HISTORY_CHARS;
@@ -325,7 +325,10 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite, checkSit
         text += part.text;
         yield { type: "text", text: part.text };
       }
-      if (part.usage) yield { type: "usage", ...part.usage };
+      if (part.usage) {
+        if (part.usage.model) ctx.lastModel = part.usage.model;
+        yield { type: "usage", ...part.usage };
+      }
     }
     lastLooped = looped;
     if (looped) yield { type: "notice", text: "AI bị lặp lại một đoạn nên đã dừng câu trả lời này." };
@@ -590,9 +593,13 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite, checkSit
         }
         rethinksLeft--;
         fixesLeft = cfg.fixRounds - 1;
+        // A second opinion: the fresh start goes to a different model from the one that got stuck.
+        ctx.avoid = ctx.lastModel || null;
         messages.push({ role: "user", content: feedback + "\n\nĐã sửa nhiều lần mà vẫn sai. Hãy BỎ hướng làm hiện tại và nghĩ lại từ đầu: "
           + "liệt kê lại các quan sát, chọn một thuật toán KHÁC, kiểm tra bằng tay trên test mẫu rồi mới viết lại TOÀN BỘ code." });
-        yield { type: "notice", text: "Các cách sửa chưa hiệu quả, AI đang nghĩ lại từ đầu với hướng khác." };
+        yield { type: "notice", text: ctx.avoid
+          ? `Các cách sửa chưa hiệu quả, đang nhờ một model khác (không phải ${ctx.avoid}) nghĩ lại từ đầu.`
+          : "Các cách sửa chưa hiệu quả, AI đang nghĩ lại từ đầu với hướng khác." };
         continue;
       }
       fixesLeft--;

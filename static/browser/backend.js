@@ -137,8 +137,8 @@ export async function request(path, { method = "GET", body } = {}) {
 
 async function health() {
   const gpu = await llm.hasWebGPU();
-  const models = llm.MODELS.filter((m) => m.provider === "cloud" || gpu).map((m) => ({
-    name: m.name, label: m.label, provider: m.provider, capabilities: ["completion"],
+  const models = llm.MODELS.filter((m) => m.provider !== "local" || gpu).map((m) => ({
+    name: m.name, label: m.label, note: m.note, provider: m.provider, free: m.free || null, capabilities: ["completion"],
   }));
   return { browser: true, webgpu: gpu, ollama: true, models, languages: judge.LANGUAGES };
 }
@@ -176,6 +176,11 @@ export async function* chat(body, signal) {
   }
   yield { type: "done" };
 }
+
+/** Live model availability and Puter sign-in, for the model menu. */
+export const modelStatus = () => llm.status();
+export const puterSignIn = () => llm.puterSignIn();
+export const puterSignOut = () => llm.puterSignOut();
 
 export function stop() {
   llm.stop();

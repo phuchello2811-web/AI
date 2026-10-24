@@ -80,6 +80,7 @@ async function refreshStatus() {
       : h.models.map(option).join("");
     if (h.models.some((m) => m.name === saved)) els.model.value = saved;
     updateThinkToggle();
+    renderModelButton();
     if (h.browser) return showBrowserStatus(h);
     $("#status").innerHTML = !h.ollama
       ? `<span class="dot" style="background:var(--bad)"></span>Ollama chưa chạy — gõ <code>brew services start ollama</code>`
@@ -123,8 +124,9 @@ function updateThinkToggle() {
 
 async function refreshConversations() {
   const convs = await api("/api/conversations");
+  const q = ($("#convSearch").value || "").trim().toLowerCase();
   els.convList.innerHTML = "";
-  for (const c of convs) {
+  for (const c of convs.filter((c) => !q || c.title.toLowerCase().includes(q))) {
     const row = document.createElement("div");
     row.className = "conv" + (c.id === state.convId ? " active" : "");
     row.innerHTML = `<span>${esc(c.title)}</span><button class="icon-btn del" title="Xoá">${icon("trash")}</button>`;
@@ -160,8 +162,22 @@ function addUserMessage(text, imageCount) {
   scrollDown(true);
 }
 
+// Code first (left untouched), then display and inline math: $$…$$, \[…\], \(…\), $…$ on one line.
+const MATH_RE = /(```[\s\S]*?(?:```|$)|`[^`\n]*`)|(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$(?=[^\s$\d])[^$\n]*?[^\s$\\]\$)/g;
+
+/** Markdown with LaTeX math: math is cut out before markdown, rendered by KaTeX, and put back after sanitising. */
 function renderMarkdown(el, text) {
-  el.innerHTML = DOMPurify.sanitize(marked.parse(text));
+  const math = [];
+  const src = window.katex ? text.replace(MATH_RE, (m, code, tex) => {
+    if (code) return code;
+    const display = tex.startsWith("$$") || tex.startsWith("\\[");
+    const body = tex.startsWith("$$") ? tex.slice(2, -2) : tex.startsWith("$") ? tex.slice(1, -1) : tex.slice(2, -2);
+    math.push(katex.renderToString(body, { displayMode: display, throwOnError: false, output: "html" }));
+    return `KXMATH${math.length - 1}KX`;
+  }) : text;
+  let html = DOMPurify.sanitize(marked.parse(src));
+  if (math.length) html = html.replace(/KXMATH(\d+)KX/g, (m, i) => math[+i] || m);
+  el.innerHTML = html;
   enhanceCode(el);
 }
 
@@ -806,7 +822,105 @@ els.think.checked = loadPref("think") === "1";
 els.effort.value = loadPref("effort") || "deep";
 els.effort.onchange = () => savePref("effort", els.effort.value);
 els.mode.onchange = () => savePref("mode", els.mode.value);
-els.model.onchange = () => { savePref("model", els.model.value); updateThinkToggle(); };
+els.model.onchange = () => { savePref("model", els.model.value); updateThinkToggle(); renderModelButton(); };
+
+/* ================= Model menu ================= */
+
+const GROUPS = [
+  ["cloud", "Miễn phí, dùng ngay", "Không cần tài khoản. Tự xếp hàng khi máy chủ bận."],
+  ["puter", "Model hàng đầu qua Puter", "Đăng nhập Puter miễn phí, dùng theo hạn mức hằng tháng của bạn."],
+  ["local", "Chạy trong trình duyệt", "Tải về một lần, sau đó không giới hạn, dùng được khi mất mạng."],
+  ["", "Model trên máy", ""],
+];
+
+function currentModel() {
+  return (state.models || []).find((m) => m.name === els.model.value);
+}
+
+function renderModelButton() {
+  const m = currentModel();
+  $("#modelName").textContent = m ? m.label || m.name : "Chọn model";
+}
+
+function waitText(ms) {
+  if (!ms) return ["ok", "sẵn sàng"];
+  if (ms < 90_000) return ["wait", `chờ ${Math.ceil(ms / 1000)} giây`];
+  const t = new Date(Date.now() + ms);
+  return ["off", `hết lượt đến ${t.getHours()}:${String(t.getMinutes()).padStart(2, "0")}`];
+}
+
+function renderModelMenu() {
+  const live = state.local && state.local.modelStatus ? state.local.modelStatus() : { free: {}, puter: false };
+  const menu = $("#modelMenu");
+  menu.innerHTML = GROUPS.map(([provider, title, hint]) => {
+    const items = (state.models || []).filter((m) => (m.provider || "") === provider);
+    if (!items.length) return "";
+    const action = provider === "puter"
+      ? (live.puter ? `<span class="chip ok">đã đăng nhập</span>` : `<button type="button" class="btn small primary" data-puter="in">${icon("login")}Đăng nhập Puter</button>`)
+      : "";
+    return `<div class="mm-group"><div class="mm-head"><div><b>${title}</b>${hint ? `<span>${hint}</span>` : ""}</div>${action}</div>`
+      + items.map((m) => {
+        let chip = "";
+        if (m.free) { const [kind, text] = waitText(live.free[m.free] || 0); chip = `<span class="chip ${kind}">${text}</span>`; }
+        else if (m.name === "cloud") chip = `<span class="chip ok">khuyên dùng</span>`;
+        else if (provider === "puter" && !live.puter) chip = `<span class="chip">cần đăng nhập</span>`;
+        return `<button type="button" class="mm-item${m.name === els.model.value ? " active" : ""}" role="option" data-name="${esc(m.name)}">
+          <span class="mm-text"><b>${esc(m.label || m.name)}</b>${m.note ? `<span>${esc(m.note)}</span>` : ""}</span>${chip}
+          ${m.name === els.model.value ? icon("check") : ""}</button>`;
+      }).join("") + "</div>";
+  }).join("") || `<div class="mm-head"><div><b>Chưa có model nào</b><span>Mở Terminal và chạy: ollama pull qwen3:4b</span></div></div>`;
+}
+
+function toggleModelMenu(open) {
+  const menu = $("#modelMenu");
+  open = open ?? menu.classList.contains("hidden");
+  if (open) renderModelMenu();
+  menu.classList.toggle("hidden", !open);
+  $("#modelBtn").setAttribute("aria-expanded", String(open));
+}
+
+async function puterSignIn() {
+  try {
+    await state.local.puterSignIn();
+  } catch (e) {
+    alert("Không đăng nhập được Puter: " + (e && e.message || e));
+  }
+  renderModelMenu();
+}
+
+$("#modelBtn").onclick = (e) => { e.stopPropagation(); toggleModelMenu(); };
+$("#modelMenu").addEventListener("click", (e) => {
+  e.stopPropagation();
+  if (e.target.closest("[data-puter]")) return puterSignIn();
+  const item = e.target.closest(".mm-item");
+  if (!item) return;
+  els.model.value = item.dataset.name;
+  els.model.onchange();
+  toggleModelMenu(false);
+  // Picking a Puter model is a click, so the sign-in window may open right away.
+  const m = currentModel();
+  if (m && m.provider === "puter" && state.local && !state.local.modelStatus().puter) puterSignIn();
+});
+document.addEventListener("click", () => toggleModelMenu(false));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") toggleModelMenu(false); });
+setInterval(() => { if (!$("#modelMenu").classList.contains("hidden")) renderModelMenu(); }, 1000);
+
+/* ================= Theme & search ================= */
+
+function applyTheme(theme) {
+  if (theme) document.documentElement.dataset.theme = theme; else delete document.documentElement.dataset.theme;
+  const dark = theme ? theme === "dark" : !matchMedia("(prefers-color-scheme: light)").matches;
+  $("#themeBtn use").setAttribute("href", dark ? "#i-sun" : "#i-moon");
+}
+$("#themeBtn").onclick = () => {
+  const dark = document.documentElement.dataset.theme
+    ? document.documentElement.dataset.theme === "dark" : !matchMedia("(prefers-color-scheme: light)").matches;
+  const next = dark ? "light" : "dark";
+  savePref("theme", next);
+  applyTheme(next);
+};
+applyTheme(loadPref("theme"));
+$("#convSearch").oninput = () => refreshConversations();
 
 const settings = $("#settingsDialog");
 const KEY_FIELDS = ["pollenKey", "llm7Key"];

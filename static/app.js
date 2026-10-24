@@ -73,12 +73,8 @@ async function refreshStatus() {
     state.models = h.models;
     const saved = els.model.value || loadPref("model");
     const option = (m) => `<option value="${esc(m.name)}">${esc(m.label || m.name)}</option>`;
-    const groups = [["cloud", "Máy chủ miễn phí, dùng ngay"], ["local", "Chạy trong trình duyệt (WebGPU)"]];
-    els.model.innerHTML = h.browser
-      ? groups.map(([p, label]) => h.models.some((m) => m.provider === p)
-        ? `<optgroup label="${label}">${h.models.filter((m) => m.provider === p).map(option).join("")}</optgroup>` : "").join("")
-      : h.models.map(option).join("");
-    if (h.models.some((m) => m.name === saved)) els.model.value = saved;
+    els.model.innerHTML = h.models.map(option).join("");
+    els.model.value = h.models.some((m) => m.name === saved) ? saved : (h.models[0] || {}).name || "";
     updateThinkToggle();
     renderModelButton();
     if (h.browser) return showBrowserStatus(h);
@@ -516,10 +512,8 @@ async function send(text) {
   text = text.trim();
   if (!text && !state.images.length) return;
   if (!state.online) return alert("Đang khởi động, đợi vài giây rồi thử lại.");
-  if (!els.model.value) {
-    return alert(state.local ? "Trình duyệt này chưa hỗ trợ WebGPU nên không chạy được AI. Hãy mở bằng Chrome hoặc Edge bản mới trên máy tính."
-      : "Chưa có model nào. Mở Terminal và chạy: ollama pull qwen3:4b");
-  }
+  if (!els.model.value && els.model.options.length) els.model.value = els.model.options[0].value;
+  if (!els.model.value) return alert("Chưa có model nào. Mở Terminal và chạy: ollama pull qwen3:4b");
   if (!state.convId) {
     const c = await api("/api/conversations", { method: "POST" });
     state.convId = c.id;

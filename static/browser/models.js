@@ -66,6 +66,14 @@ async function* loadLocal(name, signal) {
   if (error) throw error;
 }
 
+/** An in-browser model that is already downloaded (never start a multi-GB download unasked), or null. */
+async function cachedLocalModel() {
+  if (!(await hasWebGPU())) return null;
+  const llm = await local();
+  for (const m of LOCAL_MODELS) if (await llm.isCached(m.name)) return m.name;
+  return null;
+}
+
 /** A Puter model other than `label`, for a second opinion. */
 function otherPuterModel(current) {
   return ["deepseek-v4-pro", "gpt-5.6-terra", "qwen3.8-max"].find((id) => id !== current);
@@ -101,14 +109,20 @@ export async function* chat(messages, opts = {}) {
       yield* cloud.chat(messages, { ...opts, pin: info.free || null });
       return;
     } catch (e) {
-      if (!(e instanceof cloud.CloudUnavailable) || !(await hasWebGPU())) throw e;
+      if (!(e instanceof cloud.CloudUnavailable)) throw e;
+      const cached = await cachedLocalModel();
+      if (!cached) {
+        throw new Error(`${e.message} Hãy thử lại sau ít phút, hoặc mở menu model để chọn model qua Puter hay model chạy trong trình duyệt.`);
+      }
       cloudDownUntil = Date.now() + CLOUD_RETRY_MS;
-      yield { notice: `${e.message} Chuyển sang model chạy trong trình duyệt (${FALLBACK}).` };
+      model = cached;
+      yield { notice: `${e.message} Tạm dùng model ${cached} đã tải sẵn trong trình duyệt.` };
     }
   }
-  if (info.provider === "cloud") {
-    if (!(await hasWebGPU())) throw new Error("Máy chủ AI miễn phí đang không phản hồi và trình duyệt này không chạy được model offline (thiếu WebGPU). Hãy thử lại sau ít phút.");
-    model = FALLBACK;
+  if (info.provider === "cloud" && model === info.name) {
+    const cached = await cachedLocalModel();
+    if (!cached) throw new Error("Các máy chủ AI miễn phí đang bận. Hãy thử lại sau ít phút, hoặc chọn model khác trong menu.");
+    model = cached;
   }
   yield* loadLocal(model, opts.signal);
   yield* (await local()).chat(messages, opts);

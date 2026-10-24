@@ -36,7 +36,10 @@ const ACCEPTABLE_WAIT_MS = 35_000; // wait this long for a stronger model rather
 const LONG_BLOCK_MS = 10 * 60_000; // blocks longer than this (daily quotas) are remembered across reloads
 // Quotas reopen at uneven times, so a long block is retried after at most this long.
 const MAX_BLOCK_MS = 3 * 3600_000;
-const MAX_ATTEMPTS = 8;
+// "Out of quota" answers are normal with free tiers: they only make us wait for the next open service, for up
+// to MAX_WAIT_MS in total. Real failures (network, server errors) are counted separately.
+const MAX_WAIT_MS = 3 * 60_000;
+const MAX_FAILURES = 6;
 // Free tiers cut replies short, so long answers are written in several replies, each continuing the last.
 const MAX_CONTINUATIONS = 6;
 const CONTINUE = "Câu trả lời của bạn bị ngắt do giới hạn độ dài. Viết tiếp NGAY từ chỗ dừng: không chào, không tóm tắt, "
@@ -141,8 +144,9 @@ export function withSchemaInstruction(messages, schema) {
 async function* request(messages, { schema = null, maxTokens = 0, effort = "medium", route = "main", pin = null, avoid = null, signal } = {}, dropFence = false) {
   // Structured replies must fit in one short reply (reasoning included), so they think briefly.
   if (schema) effort = "low";
-  let lastError = "", substituted = false;
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+  let lastError = "", substituted = false, failures = 0;
+  const deadline = Date.now() + MAX_WAIT_MS;
+  while (Date.now() < deadline && failures < MAX_FAILURES) {
     const id = pick(route, pin, avoid);
     if (!id) break;
     const p = PROVIDERS[id];
@@ -175,6 +179,7 @@ async function* request(messages, { schema = null, maxTokens = 0, effort = "medi
       if (signal && signal.aborted) throw e;
       lastError = `${p.label}: không kết nối được`;
       block(id, 60_000);
+      failures++;
       continue;
     }
     if (res.status === 402 || res.status === 429) {
@@ -189,6 +194,7 @@ async function* request(messages, { schema = null, maxTokens = 0, effort = "medi
     if (!res.ok) {
       lastError = `${p.label}: lỗi ${res.status}`;
       block(id, res.status >= 500 ? 60_000 : 5 * 60_000);
+      failures++;
       continue;
     }
     const started = performance.now();

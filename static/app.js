@@ -13,6 +13,8 @@ const VERDICT_TEXT = {
 // Served by server.py: same origin. Opened from VS Code Live Server ("Go Live", port 55xx): call the
 // server at 127.0.0.1:8000 (override with localStorage "cm.api").
 const API = loadPref("api") || (/^55\d\d$/.test(location.port) ? "http://127.0.0.1:8000" : "");
+// Opened from the web (GitHub Pages): there is no server behind it, only setup instructions.
+const ON_WEB = location.protocol === "https:" && !["127.0.0.1", "localhost"].includes(location.hostname);
 const FORMAT_NAMES = {
   stdin: "stdin/stdout", file_io: "đọc/ghi file", multiple_cases_case_x: "Code Jam · Case #x",
   interactive: "tương tác", function_grader: "IOI · cài hàm cho grader",
@@ -63,7 +65,7 @@ function setOnline(online) {
   const wasOnline = state.online;
   state.online = online;
   $("#serverBanner").classList.toggle("hidden", online);
-  if (!online) { setTimeout(refreshStatus, 2000); return; }
+  if (!online) { if (!ON_WEB) setTimeout(refreshStatus, 2000); return; }
   if (!wasOnline) {
     refreshConversations();
     if (location.hash.startsWith("#c=") && !state.convId) openConversation(location.hash.slice(3)).catch(() => newChat());
@@ -434,6 +436,10 @@ function setBusy(busy) {
 async function send(text) {
   text = text.trim();
   if (!text && !state.images.length) return;
+  if (!state.online) {
+    return alert(ON_WEB ? "Bản trên web chỉ để giới thiệu. Hãy cài và mở CodeMaster trên máy bạn: http://127.0.0.1:8000"
+      : "Chưa kết nối được server CodeMaster. Chạy ./run.sh rồi thử lại.");
+  }
   if (!els.model.value) return alert("Chưa có model nào. Mở Terminal và chạy: ollama pull qwen3:4b");
   if (!state.convId) {
     const c = await api("/api/conversations", { method: "POST" });
@@ -734,4 +740,7 @@ els.think.onchange = () => savePref("think", els.think.checked ? "1" : "0");
 
 renderTests();
 $("#apiBase").textContent = API || location.origin;
+$("#bannerLocal").classList.toggle("hidden", ON_WEB);
+$("#bannerOnline").classList.toggle("hidden", !ON_WEB);
+$("#serverBanner .spinner").classList.toggle("hidden", ON_WEB);
 refreshStatus();

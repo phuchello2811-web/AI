@@ -42,8 +42,20 @@
     <div class="server-banner hidden" id="serverBanner">
       <div class="spinner"></div>
       <div>
-        <b>Đang chờ server CodeMaster…</b>
-        <div>Trang này cần server chạy ở <code id="apiBase">http://127.0.0.1:8000</code>. Trong VS Code: <b>Terminal → Run Task → CodeMaster: server</b> (hoặc gõ <code>./run.sh</code>). Trang sẽ tự kết nối khi server lên.</div>
+        <div id="bannerLocal">
+          <b>Đang chờ server CodeMaster…</b>
+          <div>Trang này cần server chạy ở <code id="apiBase">http://127.0.0.1:8000</code>. Trong VS Code: <b>Terminal → Run Task → CodeMaster: server</b> (hoặc gõ <code>./run.sh</code>). Trang sẽ tự kết nối khi server lên.</div>
+        </div>
+        <div id="bannerOnline" class="hidden">
+          <b>Đây là bản giới thiệu. CodeMaster chạy trên máy của bạn</b>: miễn phí, offline, không giới hạn tin nhắn.
+          <ol>
+            <li>Cài <a href="https://ollama.com/download" target="_blank" rel="noopener">Ollama</a> và Python 3.10+</li>
+            <li>Tải code: <code>git clone https://github.com/phuchello2811-web/AI.git</code> (hoặc Code → Download ZIP)</li>
+            <li>Chạy <code>./run.sh</code> (macOS/Linux) hoặc bấm đúp <code>run.bat</code> (Windows)</li>
+            <li>Mở <a href="http://127.0.0.1:8000" target="_blank" rel="noopener"><b>http://127.0.0.1:8000</b></a></li>
+          </ol>
+          <a href="https://github.com/phuchello2811-web/AI#cài-đặt--chạy" target="_blank" rel="noopener">Hướng dẫn chi tiết trên GitHub →</a>
+        </div>
       </div>
     </div>
 

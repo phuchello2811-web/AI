@@ -36,49 +36,12 @@ EFFORTS = {
 STRESS_ITERATIONS = 150
 STRESS_BUDGET_SECONDS = 45
 
-SYSTEM_PROMPTS = {
-    "cp": """You are an IOI gold medallist and Google Code Jam finalist who coaches Vietnamese informatics olympiad students. Always reply in Vietnamese.
-
-Reasoning protocol (follow it in order, every time):
-1. Read the statement twice. Pin down the input format, output format and every constraint.
-2. Derive the target time complexity from the constraints (about 10^8 simple operations per second).
-3. Work small cases by hand and write down key observations or invariants.
-4. Consider at least two approaches (greedy, DP, graph, binary search on the answer, data structure, math). For a greedy idea, actively look for a counterexample. Pick the simplest approach that is provably correct and fits the complexity.
-5. Before writing code, list the edge cases: n = 1, all values equal, negative values, maximum values (overflow: use long long), disconnected graphs, empty answer.
-6. Write the code, then trace it mentally on the first sample and compare with the expected output.
-
-Reply format:
-**Ý tưởng**: the key observations and the algorithm, briefly justified.
-**Độ phức tạp**: time and memory, checked against the constraints.
-**Code**: the complete solution in exactly ONE code block. Use C++17 (```cpp) unless the user asks for another language, with fast I/O. Read stdin and write stdout, unless the statement names input/output files (for example BAI.INP and BAI.OUT); then read and write those files.
-If you cannot find a full solution, write the best partial solution and say which subtasks it solves.
-
-Your code is compiled and run on the sample tests and on random tests automatically. If you are told that a test failed, find the root cause, explain it in one or two sentences, and write the complete corrected code again in one code block.""",
-    "web": """You are an expert front-end developer. Always reply in Vietnamese.
-
-Build what the user asks as ONE complete HTML file in a single ```html code block, with CSS inside <style> and JavaScript inside <script>. Libraries may be loaded from a CDN. Make it modern, polished and responsive, with real content instead of placeholders where possible.
-Before the code, write one or two sentences describing what you built. Write nothing after the code.
-When the user asks for changes, output the complete updated file again.""",
-    "chat": """You are a helpful programming assistant for students learning to code and preparing for informatics olympiads (VOI, IOI, ICPC, Google Code Jam). Always reply in Vietnamese.
-Explain clearly and concisely: intuition first, then the algorithm, complexity, and a clean C++ implementation. Put code in fenced code blocks with a language tag.""",
-}
-
-FORMAT_RULES = {
-    "file_io": "The statement names input/output files: read and write exactly those files.",
-    "multiple_cases_case_x": "Google Code Jam format: read T, and print every answer as `Case #x: y` (x from 1). Reset all global state between cases.",
-    "interactive": "Interactive problem: flush after every query (cout << endl), read the judge's reply, and exit immediately on -1.",
-    "function_grader": "IOI grader format: implement the required function with the exact signature. Also add a main() that mimics the sample grader (reading the input format described in the statement) so the code can be tested, and say that main() must be removed before submitting.",
-}
-
-ANALYZE_PROMPT = """You analyse a competitive programming problem before it is solved. Fill in every JSON field, concisely:
-- summary: the task in one or two Vietnamese sentences.
-- format: how the program talks to the judge.
-- time_limit_seconds: from the statement, or 2 if not stated.
-- target_complexity: e.g. "O(n log n)", derived from the largest constraint.
-- observations: up to 4 key observations in Vietnamese that lead to a solution.
-- edge_cases: up to 4 tricky inputs in Vietnamese.
-- unique_answer: false if several different outputs are accepted ("print any").
-- topics: up to 4 technique ids most likely needed."""
+# Prompts are shared with the in-browser version (static/browser/agent.js).
+PROMPTS = json.loads((Path(__file__).resolve().parent / "static" / "prompts.json").read_text(encoding="utf-8"))
+SYSTEM_PROMPTS = PROMPTS["system"]
+FORMAT_RULES = PROMPTS["format_rules"]
+ANALYZE_PROMPT = PROMPTS["analyze"]
+EXTRACT_PROMPT = PROMPTS["extract"]
 
 ANALYSIS_SCHEMA = {
     "type": "object",
@@ -95,14 +58,6 @@ ANALYSIS_SCHEMA = {
     "required": ["summary", "format", "time_limit_seconds", "target_complexity", "observations",
                  "edge_cases", "unique_answer", "topics"],
 }
-
-STRESS_PROMPT = """You write testing tools for a competitive programming solution. Output exactly two code blocks and nothing else:
-
-1. ```python  — a random test GENERATOR. It must start with `import random, sys` and `random.seed(int(sys.argv[1]))`, then print ONE complete, valid input file to stdout (including the number of test cases if the format has one). Keep tests tiny: sizes 1..8, values in a small range such as 1..10, so that bugs show up on inputs a human can check by hand. Respect every constraint and guarantee in the statement.
-2. ```python  — a BRUTE FORCE solution that is obviously correct even if very slow (try all possibilities, simulate directly). Use exactly the same input and output format as the solution below (same files if it reads/writes files)."""
-
-EXTRACT_PROMPT = """Extract the sample tests (example input and expected output) from the programming problem below.
-Copy them exactly as written, keeping line breaks. If the problem has no sample tests, return an empty list. Do not invent tests."""
 
 TEST_SCHEMA = {
     "type": "object",
@@ -121,6 +76,10 @@ TEST_SCHEMA = {
 
 CODE_BLOCK_RE = re.compile(r"```([\w+#-]*)[^\n]*\n(.*?)```", re.S)
 CODE_LANGS = {"cpp": "cpp", "c++": "cpp", "cc": "cpp", "c": "c", "python": "python", "py": "python", "python3": "python"}
+# Small models often claim "several answers accepted"; only believe it when the statement says so.
+ANY_ANSWER_RE = re.compile(r"\bany\b|bất k[ỳì]|nào cũng|nhiều đáp án|multiple (?:answers|solutions)", re.I)
+# Caps for the helper calls: small models sometimes repeat themselves until the context is full.
+MAX_TOKENS = {"extract": 800, "analyze": 700, "generator": 600, "brute": 1000}
 TIME_LIMIT_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:giây|s\b|sec|second)", re.I)
 
 _capabilities: dict[str, list[str]] = {}
@@ -188,7 +147,8 @@ def _no_think(client, model) -> dict:
 
 
 def extract_tests(client, model, statement):
-    resp = client.chat(model=model, format=TEST_SCHEMA, options={"temperature": 0, "num_ctx": num_ctx()},
+    resp = client.chat(model=model, format=TEST_SCHEMA,
+                       options={"temperature": 0, "num_ctx": num_ctx(), "num_predict": MAX_TOKENS["extract"]},
                        messages=[{"role": "system", "content": EXTRACT_PROMPT},
                                  {"role": "user", "content": statement}], **_no_think(client, model))
     try:
@@ -218,7 +178,8 @@ def analyze_problem(client, model, statement):
     request = [{"role": "system", "content": ANALYZE_PROMPT},
                {"role": "user", "content": statement + (f"\n\n(Gợi ý: {hint})" if hint else "")}]
     raw = yield from _stream_quiet(client, model, request, "analyze", format=ANALYSIS_SCHEMA,
-                                   options={"temperature": 0.2, "num_ctx": num_ctx()}, **_no_think(client, model))
+                                   options={"temperature": 0.2, "num_ctx": num_ctx(), "num_predict": MAX_TOKENS["analyze"]},
+                                   **_no_think(client, model))
     try:
         analysis = json.loads(raw)
     except json.JSONDecodeError:
@@ -327,12 +288,31 @@ def _stress_feedback(result: dict) -> str:
     return "\n".join(lines)
 
 
-def _parse_stress_helpers(reply: str):
-    blocks = [(CODE_LANGS.get(lang.lower()), body) for lang, body in CODE_BLOCK_RE.findall(reply)]
-    blocks = [(lang, body) for lang, body in blocks if lang]
-    gen = next((b for b in blocks if b[0] == "python" and "sys.argv" in b[1]), None)
-    brute = next((b for b in blocks if b is not gen), None)
-    if not gen or not brute:
+def _generator_ok(code: str) -> bool:
+    """A generator prints a test from the seed; small models sometimes write a solver instead."""
+    return "sys.argv" in code and "input(" not in code and "stdin" not in code
+
+
+def _write_stress_helpers(client, model, statement, lang, source, tool_id):
+    """Ask for the generator and the brute force separately; returns the helpers dict or None."""
+    def ask(messages, max_tokens):
+        reply = yield from _stream_quiet(client, model, messages, tool_id,
+                                         options={"temperature": 0.3, "num_ctx": num_ctx(), "num_predict": max_tokens},
+                                         **_no_think(client, model))
+        messages.append({"role": "assistant", "content": reply})
+        return last_code_block(reply, CODE_LANGS)
+
+    request = [{"role": "system", "content": PROMPTS["stress_generator"]}, {"role": "user", "content": f"Problem:\n{statement}"}]
+    gen = yield from ask(request, MAX_TOKENS["generator"])
+    if not gen or gen[0] != "python" or not _generator_ok(gen[1]):
+        request.append({"role": "user", "content": PROMPTS["stress_generator_retry"]})
+        gen = yield from ask(request, MAX_TOKENS["generator"])
+        if not gen or gen[0] != "python" or not _generator_ok(gen[1]):
+            return None
+    request = [{"role": "system", "content": PROMPTS["stress_brute"]},
+               {"role": "user", "content": f"Problem:\n{statement}\n\nSolution:\n```{lang}\n{source}```"}]
+    brute = yield from ask(request, MAX_TOKENS["brute"])
+    if not brute:
         return None
     return {"generator": gen[1], "brute_language": brute[0], "brute": brute[1]}
 
@@ -351,11 +331,7 @@ def _stress(client, model, state, lang, source, time_limit, run_id):
     yield {"type": "tool_start", "id": run_id, "name": "stress_test"}
     helpers = state.get("stress")
     if not helpers:
-        request = [{"role": "system", "content": STRESS_PROMPT},
-                   {"role": "user", "content": f"Problem:\n{state.get('statement', '')}\n\nSolution:\n```{lang}\n{source}```"}]
-        reply = yield from _stream_quiet(client, model, request, run_id,
-                                         options={"temperature": 0.3, "num_ctx": num_ctx()}, **_no_think(client, model))
-        helpers = _parse_stress_helpers(reply)
+        helpers = yield from _write_stress_helpers(client, model, state.get("statement", ""), lang, source, run_id)
         if not helpers:
             yield {"type": "tool_result", "id": run_id, "name": "stress_test",
                    "output": {"error": "AI không viết được generator/brute force hợp lệ, bỏ qua stress test."}}
@@ -406,7 +382,8 @@ def _solve_problem(client, messages, state, model, think, effort):
     system = _cp_system(analysis, entries, knowledge.constraint_hint(statement))
     time_limit = _time_limit(analysis, statement)
     tests = state.get("tests", [])
-    stress = cfg["stress"] and analysis.get("unique_answer", True) and analysis.get("format") != "interactive"
+    any_answer = analysis.get("unique_answer") is False and ANY_ANSWER_RE.search(statement)
+    stress = cfg["stress"] and not any_answer and analysis.get("format") != "interactive"
 
     fixes_left, rethinks_left, fixes_done = cfg["fix_rounds"], int(cfg["rethink"]), 0
     for round_no in itertools.count():  # ends via fixes_left / rethinks_left

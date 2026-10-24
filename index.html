@@ -47,14 +47,14 @@
           <div>Trang này cần server chạy ở <code id="apiBase">http://127.0.0.1:8000</code>. Trong VS Code: <b>Terminal → Run Task → CodeMaster: server</b> (hoặc gõ <code>./run.sh</code>). Trang sẽ tự kết nối khi server lên.</div>
         </div>
         <div id="bannerOnline" class="hidden">
-          <b>Đây là bản giới thiệu. CodeMaster chạy trên máy của bạn</b>: miễn phí, offline, không giới hạn tin nhắn.
-          <ol>
-            <li>Cài <a href="https://ollama.com/download" target="_blank" rel="noopener">Ollama</a> và Python 3.10+</li>
-            <li>Tải code: <code>git clone https://github.com/phuchello2811-web/AI.git</code> (hoặc Code → Download ZIP)</li>
-            <li>Chạy <code>./run.sh</code> (macOS/Linux) hoặc bấm đúp <code>run.bat</code> (Windows)</li>
-            <li>Mở <a href="http://127.0.0.1:8000" target="_blank" rel="noopener"><b>http://127.0.0.1:8000</b></a></li>
-          </ol>
-          <a href="https://github.com/phuchello2811-web/AI#cài-đặt--chạy" target="_blank" rel="noopener">Hướng dẫn chi tiết trên GitHub →</a>
+          <div id="webgpuInfo">
+            <b>AI chạy ngay trong trình duyệt của bạn</b>: miễn phí, không cần cài gì, không giới hạn tin nhắn, dữ liệu không rời khỏi máy.
+            <div>Lần đầu gửi tin nhắn, trình duyệt tải model đã chọn (khoảng 2–6 GB tuỳ model) và khi chấm code thì tải trình biên dịch C++ (~105 MB). Sau đó mọi thứ được lưu lại, lần sau mở là dùng ngay. Máy yếu nên chọn <b>Qwen3.5 2B</b>.</div>
+          </div>
+          <div id="noWebGPU" class="hidden">
+            <b>Trình duyệt này chưa chạy được AI (thiếu WebGPU).</b>
+            <div>Hãy mở trang bằng <b>Chrome</b> hoặc <b>Edge</b> bản mới trên máy tính (Windows, macOS, ChromeOS), hoặc Safari 26 trở lên. Máy có GPU rời hoặc chip Apple M chạy nhanh nhất.</div>
+          </div>
         </div>
       </div>
     </div>

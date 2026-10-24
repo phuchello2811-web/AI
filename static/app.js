@@ -13,14 +13,15 @@ const VERDICT_TEXT = {
 // Served by server.py: same origin. Opened from VS Code Live Server ("Go Live", port 55xx): call the
 // server at 127.0.0.1:8000 (override with localStorage "cm.api").
 const API = loadPref("api") || (/^55\d\d$/.test(location.port) ? "http://127.0.0.1:8000" : "");
-// Opened from the web (GitHub Pages): there is no server behind it, only setup instructions.
+// Opened from the web (GitHub Pages): no server behind it, so everything runs in the browser.
 const ON_WEB = location.protocol === "https:" && !["127.0.0.1", "localhost"].includes(location.hostname);
 const FORMAT_NAMES = {
   stdin: "stdin/stdout", file_io: "đọc/ghi file", multiple_cases_case_x: "Code Jam · Case #x",
   interactive: "tương tác", function_grader: "IOI · cài hàm cho grader",
 };
 
-const state = { convId: null, controller: null, images: [], previewUrl: null, files: [], online: false, library: null };
+// `local` is static/browser/backend.js when the app runs entirely in the browser (no server.py).
+const state = { convId: null, controller: null, images: [], previewUrl: null, files: [], online: false, library: null, local: null };
 const els = {
   messages: $("#messages"), welcome: $("#welcome"), input: $("#input"), send: $("#sendBtn"),
   convList: $("#convList"), title: $("#chatTitle"), panel: $("#panel"), usage: $("#usage"),
@@ -32,6 +33,7 @@ marked.setOptions({ gfm: true, breaks: false });
 /* ================= API ================= */
 
 async function api(path, opts = {}) {
+  if (state.local) return state.local.request(path, opts);
   const res = await fetch(API + path, { headers: { "Content-Type": "application/json" }, ...opts });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -40,15 +42,36 @@ async function api(path, opts = {}) {
   return res.json();
 }
 
+// Use server.py when it answers (same origin, or 127.0.0.1:8000 from Live Server); otherwise, and always
+// on GitHub Pages, run the whole app in the browser.
+async function connect() {
+  if (!ON_WEB && loadPref("backend") !== "browser") {
+    try {
+      const res = await fetch(API + "/api/health");
+      if (res.ok) return refreshStatus();
+    } catch {}
+  }
+  try {
+    state.local = await import("./browser/backend.js");
+  } catch (e) {
+    $("#status").innerHTML = `<span class="dot" style="background:var(--bad)"></span>Không tải được bản chạy trong trình duyệt: ${esc(e.message)}`;
+    return;
+  }
+  refreshStatus();
+}
+
 async function refreshStatus() {
   try {
     const h = await api("/api/health");
     setOnline(true);
     state.models = h.models;
-    const saved = loadPref("model");
-    els.model.innerHTML = h.models.map((m) => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join("");
+    const saved = els.model.value || loadPref("model");
+    els.model.innerHTML = h.models.map((m) =>
+      `<option value="${esc(m.name)}">${esc(m.label || m.name)}${m.cached ? " ✓" : ""}</option>`).join("");
     if (h.models.some((m) => m.name === saved)) els.model.value = saved;
+    else if (h.browser && (navigator.deviceMemory || 8) <= 4) els.model.value = "Qwen3.5-2B";
     updateThinkToggle();
+    if (h.browser) return showBrowserStatus(h);
     $("#status").innerHTML = !h.ollama
       ? `<span class="dot" style="background:var(--bad)"></span>Ollama chưa chạy — gõ <code>brew services start ollama</code>`
       : h.models.length
@@ -60,12 +83,24 @@ async function refreshStatus() {
   }
 }
 
+function showBrowserStatus(h) {
+  $("#bannerLocal").classList.add("hidden");
+  $("#serverBanner .spinner").classList.add("hidden");
+  $("#bannerOnline").classList.toggle("hidden", h.webgpu && h.models.some((m) => m.cached));
+  $("#noWebGPU").classList.toggle("hidden", h.webgpu);
+  $("#webgpuInfo").classList.toggle("hidden", !h.webgpu);
+  $("#serverBanner").classList.toggle("hidden", $("#bannerOnline").classList.contains("hidden"));
+  $("#status").innerHTML = h.webgpu
+    ? `<span class="dot" style="background:var(--ok)"></span>Chạy trong trình duyệt · miễn phí, không giới hạn`
+    : `<span class="dot" style="background:var(--bad)"></span>Trình duyệt chưa hỗ trợ WebGPU`;
+}
+
 // Until the server answers, show the banner and retry every 2 s; then load everything once.
 function setOnline(online) {
   const wasOnline = state.online;
   state.online = online;
   $("#serverBanner").classList.toggle("hidden", online);
-  if (!online) { if (!ON_WEB) setTimeout(refreshStatus, 2000); return; }
+  if (!online) { if (!state.local) setTimeout(refreshStatus, 2000); return; }
   if (!wasOnline) {
     refreshConversations();
     if (location.hash.startsWith("#c=") && !state.convId) openConversation(location.hash.slice(3)).catch(() => newChat());
@@ -240,6 +275,9 @@ class Turn {
         this.closeSeg();
         this.toolCard(ev.id, ev.name);
         break;
+      case "tool_status":
+        if (this.tools[ev.id]) $(".t-sum", this.tools[ev.id].el).textContent = ev.text;
+        break;
       case "tool_progress":
         if (this.lastTool) $(".t-sum", this.lastTool.el).textContent = `đang viết… ${(this.lastTool.chars += ev.chars).toLocaleString()} ký tự`;
         break;
@@ -281,6 +319,7 @@ class Turn {
     const titles = {
       run_code: "⚙️ Chạy thử code", stress_test: "🎲 Stress test", save_web_files: "💾 Lưu website",
       extract_tests: "📋 Lấy test mẫu từ đề", analyze_problem: "🧭 Phân tích đề", knowledge: "📚 Tra thư viện thuật toán",
+      load_model: "⬇️ Tải model AI vào trình duyệt",
     };
     const busy = { extract_tests: "đang đọc đề…", analyze_problem: "đang phân tích…", knowledge: "đang tra…", stress_test: "đang viết lời giải trâu và sinh test…" };
     const el = document.createElement("div");
@@ -328,15 +367,20 @@ class Turn {
     };
     if (out.error) {
       setBadge("ERR");
+      sum.textContent = out.error;
       body.insertAdjacentHTML("beforeend", `<pre>${esc(out.error)}</pre>`);
       return;
     }
-    if (ev.name === "analyze_problem") {
+    if (ev.name === "load_model") {
+      setBadge("OK", "Sẵn sàng");
+      sum.textContent = out.model || "";
+      if (live) refreshStatus();
+    } else if (ev.name === "analyze_problem") {
       setBadge("OK", FORMAT_NAMES[out.format] || "Xong");
       sum.textContent = [out.target_complexity, out.time_limit_seconds ? `TL ${out.time_limit_seconds}s` : ""].filter(Boolean).join(" · ");
       const list = (title, items) => items && items.length ? `<b>${title}</b><ul>${items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
       body.innerHTML = `<p>${esc(out.summary)}</p>${list("Quan sát", out.observations)}${list("Trường hợp biên", out.edge_cases)}`
-        + (out.unique_answer === false ? `<p class="muted">Đề chấp nhận nhiều đáp án: bỏ qua stress test so khớp.</p>` : "");
+        + (out.unique_answer === false ? `<p class="muted">AI cho rằng đề chấp nhận nhiều đáp án.</p>` : "");
     } else if (ev.name === "knowledge") {
       const topics = out.topics || [];
       setBadge("OK", `${topics.length} chủ đề`);
@@ -436,11 +480,11 @@ function setBusy(busy) {
 async function send(text) {
   text = text.trim();
   if (!text && !state.images.length) return;
-  if (!state.online) {
-    return alert(ON_WEB ? "Bản trên web chỉ để giới thiệu. Hãy cài và mở CodeMaster trên máy bạn: http://127.0.0.1:8000"
-      : "Chưa kết nối được server CodeMaster. Chạy ./run.sh rồi thử lại.");
+  if (!state.online) return alert("Đang khởi động, đợi vài giây rồi thử lại.");
+  if (!els.model.value) {
+    return alert(state.local ? "Trình duyệt này chưa hỗ trợ WebGPU nên không chạy được AI. Hãy mở bằng Chrome hoặc Edge bản mới trên máy tính."
+      : "Chưa có model nào. Mở Terminal và chạy: ollama pull qwen3:4b");
   }
-  if (!els.model.value) return alert("Chưa có model nào. Mở Terminal và chạy: ollama pull qwen3:4b");
   if (!state.convId) {
     const c = await api("/api/conversations", { method: "POST" });
     state.convId = c.id;
@@ -456,36 +500,18 @@ async function send(text) {
   const turn = new Turn();
   state.controller = new AbortController();
   setBusy(true);
+  const body = { conversation_id: state.convId, text, images, mode: els.mode.value, model: els.model.value,
+                 think: els.think.checked, effort: els.effort.value };
+  const signal = state.controller.signal;
   try {
-    const res = await fetch(API + "/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversation_id: state.convId, text, images, mode: els.mode.value, model: els.model.value, think: els.think.checked, effort: els.effort.value }),
-      signal: state.controller.signal,
-    });
-    if (!res.ok) {
-      const b = await res.json().catch(() => ({}));
-      throw new Error(b.detail || `HTTP ${res.status}`);
+    let finished = false;
+    for await (const ev of state.local ? state.local.chat(body, signal) : serverChat(body, signal)) {
+      if (ev.type === "title") { els.title.textContent = ev.title; refreshConversations(); continue; }
+      if (ev.type === "done") { if (!finished) turn.handle(ev); finished = true; continue; }
+      turn.handle(ev);
+      if (ev.type === "usage") els.usage.textContent = `${turn.tokens.speed} token/giây`;
     }
-    const reader = res.body.getReader();
-    const dec = new TextDecoder();
-    let buf = "", finished = false;
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      let i;
-      while ((i = buf.indexOf("\n\n")) >= 0) {
-        const chunk = buf.slice(0, i);
-        buf = buf.slice(i + 2);
-        if (!chunk.startsWith("data: ")) continue;
-        const ev = JSON.parse(chunk.slice(6));
-        if (ev.type === "title") { els.title.textContent = ev.title; refreshConversations(); continue; }
-        if (ev.type === "done") { if (!finished) turn.handle(ev); finished = true; continue; }
-        turn.handle(ev);
-        if (ev.type === "usage") els.usage.textContent = `${turn.tokens.speed} token/giây`;
-      }
-    }
+    if (signal.aborted) throw new DOMException("stopped", "AbortError");
     if (!finished) turn.finish();
   } catch (err) {
     if (err.name === "AbortError") turn.handle({ type: "notice", text: "Đã dừng." });
@@ -495,6 +521,31 @@ async function send(text) {
     state.controller = null;
     setBusy(false);
     refreshConversations();
+  }
+}
+
+/** The server's /api/chat Server-Sent Events as an async stream of events. */
+async function* serverChat(body, signal) {
+  const res = await fetch(API + "/api/chat", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal,
+  });
+  if (!res.ok) {
+    const b = await res.json().catch(() => ({}));
+    throw new Error(b.detail || `HTTP ${res.status}`);
+  }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) return;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf("\n\n")) >= 0) {
+      const chunk = buf.slice(0, i);
+      buf = buf.slice(i + 2);
+      if (chunk.startsWith("data: ")) yield JSON.parse(chunk.slice(6));
+    }
   }
 }
 
@@ -610,7 +661,7 @@ async function loadPreviewFiles() {
   state.files = state.convId ? await api(`/api/conversations/${state.convId}/files`).catch(() => []) : [];
   const sel = $("#fileSelect");
   sel.innerHTML = `<option value="">🌐 Xem trước</option>` + state.files.map((f) => `<option value="${esc(f.path)}">📄 ${esc(f.path)}</option>`).join("");
-  if (!state.previewUrl && state.files.some((f) => f.path === "index.html")) state.previewUrl = `/preview/${state.convId}/index.html`;
+  if (!state.previewUrl && !state.local && state.files.some((f) => f.path === "index.html")) state.previewUrl = `/preview/${state.convId}/index.html`;
 }
 
 async function showPreview(reload) {
@@ -622,8 +673,9 @@ async function showPreview(reload) {
   $("#fileView").classList.add("hidden");
   $("#fileSelect").value = "";
   if (has) {
-    $("#previewFrame").src = API + state.previewUrl + "?t=" + Date.now();
-    $("#openTab").href = API + state.previewUrl;
+    const url = state.previewUrl.startsWith("blob:") ? state.previewUrl : API + state.previewUrl + "?t=" + Date.now();
+    $("#previewFrame").src = url;
+    $("#openTab").href = state.previewUrl.startsWith("blob:") ? state.previewUrl : API + state.previewUrl;
   }
 }
 
@@ -740,7 +792,4 @@ els.think.onchange = () => savePref("think", els.think.checked ? "1" : "0");
 
 renderTests();
 $("#apiBase").textContent = API || location.origin;
-$("#bannerLocal").classList.toggle("hidden", ON_WEB);
-$("#bannerOnline").classList.toggle("hidden", !ON_WEB);
-$("#serverBanner .spinner").classList.toggle("hidden", ON_WEB);
-refreshStatus();
+connect();

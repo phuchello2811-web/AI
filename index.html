@@ -84,7 +84,6 @@
     </div>
     <button class="btn primary wide" id="newChat"><svg class="i"><use href="#i-plus"/></svg>Cuộc trò chuyện mới</button>
     <label class="conv-search"><svg class="i"><use href="#i-search"/></svg><input type="search" id="convSearch" placeholder="Tìm cuộc trò chuyện"></label>
-    <div class="conv-label">Gần đây</div>
     <div class="conv-list" id="convList"></div>
     <div class="sidebar-foot">
       <div id="status">Đang khởi động…</div>
@@ -117,6 +116,12 @@
         <img class="hero-logo" src="static/logo.svg" alt="" width="64" height="64">
         <h1>Hôm nay bạn muốn giải bài gì?</h1>
         <p>Dán đề bài tin học (VOI, IOI, Code Jam, Codeforces) hoặc mô tả một website. AI phân tích đề, tra thư viện thuật toán, viết code, tự chấm test, stress test với lời giải trâu và tự sửa khi sai.</p>
+        <div class="stats">
+          <div><b id="statLessons">120</b><span>bài học thuật toán và web</span></div>
+          <div><b id="statModels">17</b><span>model AI để chọn</span></div>
+          <div><b>C++ · Python</b><span>chấm ngay trong trình duyệt</span></div>
+          <div><b>Miễn phí</b><span>không cần tài khoản</span></div>
+        </div>
         <ol class="pipeline">
           <li>Phân tích đề</li><li>Tra kiến thức</li><li>Viết lời giải</li><li>Chấm test mẫu</li><li>Stress test</li><li>Tự sửa</li>
         </ol>
@@ -143,14 +148,22 @@
       </div>
     </div>
 
+    <button type="button" class="scroll-down hidden" id="scrollDown" title="Xuống cuối"><svg class="i"><use href="#i-chevron"/></svg></button>
     <form class="composer" id="composer">
+      <div class="composer-top">
+        <div class="seg" id="modeSeg" role="radiogroup" aria-label="Chế độ">
+          <button type="button" role="radio" data-value="cp"><svg class="i"><use href="#i-trophy"/></svg>Giải bài tin</button>
+          <button type="button" role="radio" data-value="web"><svg class="i"><use href="#i-layout"/></svg>Làm web</button>
+          <button type="button" role="radio" data-value="chat"><svg class="i"><use href="#i-chat"/></svg>Hỏi đáp</button>
+        </div>
+      </div>
       <div class="attachments" id="attachments"></div>
       <textarea id="input" rows="1" placeholder="Dán đề bài hoặc mô tả website… (Enter để gửi, Shift+Enter xuống dòng)"></textarea>
       <div class="composer-bar">
         <label class="icon-btn" title="Đính kèm ảnh đề bài">
           <svg class="i"><use href="#i-clip"/></svg><input type="file" id="fileInput" accept="image/*" multiple hidden>
         </label>
-        <select id="mode" title="Chế độ">
+        <select id="mode" title="Chế độ" hidden>
           <option value="cp">Giải bài tin</option>
           <option value="web">Làm web</option>
           <option value="chat">Hỏi đáp</option>
@@ -162,7 +175,12 @@
           </button>
           <div class="model-menu hidden" id="modelMenu" role="listbox"></div>
         </div>
-        <select id="effort" title="Mức suy nghĩ">
+        <div class="seg small" id="effortSeg" role="radiogroup" aria-label="Mức suy nghĩ">
+          <button type="button" role="radio" data-value="fast" title="Nhanh: trả lời ngay, kiểm tra cơ bản">Nhanh</button>
+          <button type="button" role="radio" data-value="deep" title="Kỹ: phân tích đề, tra kiến thức, tự sửa">Kỹ</button>
+          <button type="button" role="radio" data-value="max" title="Tối đa: suy luận sâu nhất, stress test, kiểm tra tốc độ, tự đánh giá">Tối đa</button>
+        </div>
+        <select id="effort" title="Mức suy nghĩ" hidden>
           <option value="fast">Nhanh</option>
           <option value="deep">Kỹ</option>
           <option value="max">Tối đa</option>

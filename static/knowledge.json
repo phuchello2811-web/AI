@@ -1258,5 +1258,952 @@
    "offline"
   ],
   "body": "- Favicon SVG nhúng trực tiếp: `<link rel=\"icon\" href=\"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>…</svg>\">`.\n- Ảnh xem trước khi chia sẻ: `<meta property=\"og:title\">`, `og:description`, `og:image` (1200 × 630), `<meta name=\"twitter:card\" content=\"summary_large_image\">`.\n- PWA: `manifest.webmanifest` (name, icons 192/512, start_url, display \"standalone\", theme_color) + service worker cache tài nguyên tĩnh.\n- Logo tự vẽ bằng SVG (hình học đơn giản, 1–2 màu) đẹp và nét hơn ảnh bitmap."
+ },
+ {
+  "id": "big_integer",
+  "title": "Số nguyên lớn: cộng, trừ, nhân, chia cho số nhỏ",
+  "keys": [
+   "so lon",
+   "big integer",
+   "bignum",
+   "nhieu chu so",
+   "10^100",
+   "1000 chu so",
+   "cong so lon",
+   "nhan so lon",
+   "giai thua lon"
+  ],
+  "body": "Lưu số dạng xâu thập phân (chữ số cao trước). Dùng khi kết quả vượt `__int128` (~3.4·10^38) — hay gặp ở VOI/HSG.\n```cpp\nstring add(string a, string b) { string r; int c = 0;\n  for (int i = a.size() - 1, j = b.size() - 1; i >= 0 || j >= 0 || c; --i, --j) {\n    int s = c + (i >= 0 ? a[i] - '0' : 0) + (j >= 0 ? b[j] - '0' : 0); r += char('0' + s % 10); c = s / 10; }\n  reverse(r.begin(), r.end()); return r; }\n// a >= b\nstring sub(string a, string b) { string r; int br = 0;\n  for (int i = a.size() - 1, j = b.size() - 1; i >= 0; --i, --j) {\n    int d = a[i] - '0' - br - (j >= 0 ? b[j] - '0' : 0); br = d < 0; if (d < 0) d += 10; r += char('0' + d); }\n  while (r.size() > 1 && r.back() == '0') r.pop_back(); reverse(r.begin(), r.end()); return r; }\nstring mul(const string& a, const string& b) { vector<long long> v(a.size() + b.size());\n  for (int i = a.size() - 1; i >= 0; --i) for (int j = b.size() - 1; j >= 0; --j) v[i + j + 1] += (a[i] - '0') * (b[j] - '0');\n  for (int k = v.size() - 1; k > 0; --k) { v[k - 1] += v[k] / 10; v[k] %= 10; }\n  string r; for (long long d : v) if (!r.empty() || d) r += char('0' + d); return r.empty() ? \"0\" : r; }\npair<string, long long> divSmall(const string& a, long long d) { string q; long long rem = 0;\n  for (char ch : a) { rem = rem * 10 + (ch - '0'); if (!q.empty() || rem / d) q += char('0' + rem / d); rem %= d; }\n  return {q.empty() ? \"0\" : q, rem}; }\n```\n- Nhân hai số rất dài (10^5 chữ số): dùng FFT/NTT. Python có sẵn số nguyên lớn: với bài cho phép Python, dùng luôn `int`."
+ },
+ {
+  "id": "ntt_code",
+  "title": "NTT (nhân đa thức modulo 998244353) — code",
+  "keys": [
+   "ntt",
+   "fft",
+   "nhan da thuc",
+   "convolution",
+   "tich chap",
+   "998244353",
+   "number theoretic transform"
+  ],
+  "body": "```cpp\nconst int MOD = 998244353, G = 3;\nlong long pw(long long a, long long e) { long long r = 1; a %= MOD; for (; e; e >>= 1, a = a * a % MOD) if (e & 1) r = r * a % MOD; return r; }\nvoid ntt(vector<long long>& a, bool inv) { int n = a.size();\n  for (int i = 1, j = 0; i < n; ++i) { int bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) swap(a[i], a[j]); }\n  for (int len = 2; len <= n; len <<= 1) { long long w = pw(G, (MOD - 1) / len); if (inv) w = pw(w, MOD - 2);\n    for (int i = 0; i < n; i += len) { long long wn = 1;\n      for (int j = 0; j < len / 2; ++j) { long long u = a[i + j], v = a[i + j + len / 2] * wn % MOD;\n        a[i + j] = (u + v) % MOD; a[i + j + len / 2] = (u - v + MOD) % MOD; wn = wn * w % MOD; } } }\n  if (inv) { long long ni = pw(n, MOD - 2); for (auto& x : a) x = x * ni % MOD; } }\nvector<long long> multiply(vector<long long> a, vector<long long> b) { int need = a.size() + b.size() - 1, n = 1;\n  while (n < need) n <<= 1; a.resize(n); b.resize(n); ntt(a, false); ntt(b, false);\n  for (int i = 0; i < n; ++i) a[i] = a[i] * b[i] % MOD; ntt(a, true); a.resize(need); return a; }\n```\nKhông có modulo (hệ số nhỏ): dùng FFT số phức, làm tròn `llround`."
+ },
+ {
+  "id": "dinic_code",
+  "title": "Luồng cực đại Dinic — code",
+  "keys": [
+   "dinic",
+   "max flow",
+   "luong cuc dai",
+   "lat cat nho nhat",
+   "min cut",
+   "flow network",
+   "mang luong"
+  ],
+  "body": "```cpp\nstruct Dinic { struct E { int to; long long cap; }; vector<E> e; vector<vector<int>> g; vector<int> lvl, it;\n  Dinic(int n): g(n), lvl(n), it(n) {}\n  void add(int u, int v, long long c) { g[u].push_back(e.size()); e.push_back({v, c}); g[v].push_back(e.size()); e.push_back({u, 0}); }\n  bool bfs(int s, int t) { fill(lvl.begin(), lvl.end(), -1); queue<int> q; q.push(s); lvl[s] = 0;\n    while (!q.empty()) { int u = q.front(); q.pop(); for (int id : g[u]) if (e[id].cap > 0 && lvl[e[id].to] < 0) { lvl[e[id].to] = lvl[u] + 1; q.push(e[id].to); } }\n    return lvl[t] >= 0; }\n  long long dfs(int u, int t, long long f) { if (u == t) return f;\n    for (int& i = it[u]; i < (int)g[u].size(); ++i) { int id = g[u][i]; int v = e[id].to;\n      if (e[id].cap > 0 && lvl[v] == lvl[u] + 1) { long long d = dfs(v, t, min(f, e[id].cap));\n        if (d > 0) { e[id].cap -= d; e[id ^ 1].cap += d; return d; } } }\n    return 0; }\n  long long maxflow(int s, int t) { long long flow = 0; while (bfs(s, t)) { fill(it.begin(), it.end(), 0); while (long long f = dfs(s, t, LLONG_MAX)) flow += f; } return flow; } };\n```\nSau khi chạy, các đỉnh còn tới được từ s trên đồ thị dư (cap > 0) là phía s của lát cắt nhỏ nhất."
+ },
+ {
+  "id": "kuhn_matching",
+  "title": "Cặp ghép hai phía (Kuhn) — code",
+  "keys": [
+   "cap ghep",
+   "matching",
+   "bipartite matching",
+   "kuhn",
+   "hai phia",
+   "phan cong",
+   "ghep doi",
+   "augmenting path"
+  ],
+  "body": "O(V·E), đủ cho V ≤ 1000–2000 với đồ thị thưa; lớn hơn dùng Hopcroft–Karp hoặc Dinic.\n```cpp\nint nL, nR; vector<vector<int>> adj; vector<int> mt; vector<char> used;\nbool tryKuhn(int v) { if (used[v]) return false; used[v] = true;\n  for (int to : adj[v]) if (mt[to] == -1 || tryKuhn(mt[to])) { mt[to] = v; return true; }\n  return false; }\nint maxMatching() { mt.assign(nR, -1); int res = 0;\n  for (int v = 0; v < nL; ++v) { used.assign(nL, false); if (tryKuhn(v)) ++res; } return res; }\n```\n- Phủ đỉnh nhỏ nhất = cặp ghép lớn nhất (König). Tập độc lập lớn nhất = V − cặp ghép lớn nhất."
+ },
+ {
+  "id": "tarjan_scc_code",
+  "title": "Thành phần liên thông mạnh (Tarjan) — code",
+  "keys": [
+   "scc",
+   "lien thong manh",
+   "tarjan",
+   "strongly connected",
+   "co do thi",
+   "condensation",
+   "2-sat"
+  ],
+  "body": "```cpp\nint n, timer_ = 0, ncomp = 0; vector<vector<int>> g; vector<int> tin, low, comp, st; vector<char> on;\nvoid tarjan(int u) { tin[u] = low[u] = ++timer_; st.push_back(u); on[u] = 1;\n  for (int v : g[u]) { if (!tin[v]) { tarjan(v); low[u] = min(low[u], low[v]); } else if (on[v]) low[u] = min(low[u], tin[v]); }\n  if (low[u] == tin[u]) { while (true) { int v = st.back(); st.pop_back(); on[v] = 0; comp[v] = ncomp; if (v == u) break; } ++ncomp; } }\n// tin.assign(n,0); low.assign(n,0); comp.assign(n,-1); on.assign(n,0); for u: if (!tin[u]) tarjan(u);\n```\n- Thứ tự thành phần sinh ra là **topo ngược** của đồ thị co. Đồ thị 10^5–10^6 đỉnh: đệ quy sâu, cân nhắc viết lặp."
+ },
+ {
+  "id": "convex_hull_code",
+  "title": "Bao lồi (monotone chain) — code",
+  "keys": [
+   "bao loi",
+   "convex hull",
+   "da giac loi",
+   "hang rao",
+   "monotone chain",
+   "andrew"
+  ],
+  "body": "```cpp\ntypedef long long ll; struct P { ll x, y; bool operator<(const P& o) const { return x < o.x || (x == o.x && y < o.y); } };\nll cross(P o, P a, P b) { return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x); }\nvector<P> hull(vector<P> p) { sort(p.begin(), p.end()); p.erase(unique(p.begin(), p.end(), [](P a, P b) { return a.x == b.x && a.y == b.y; }), p.end());\n  if (p.size() < 3) return p; vector<P> h(2 * p.size()); int k = 0;\n  for (size_t i = 0; i < p.size(); ++i) { while (k >= 2 && cross(h[k - 2], h[k - 1], p[i]) <= 0) --k; h[k++] = p[i]; }\n  for (int i = p.size() - 2, t = k + 1; i >= 0; --i) { while (k >= t && cross(h[k - 2], h[k - 1], p[i]) <= 0) --k; h[k++] = p[i]; }\n  h.resize(k - 1); return h; }  // ngược chiều kim đồng hồ, bỏ điểm thẳng hàng\n```\nDiện tích ×2 = |Σ cross((0,0), h[i], h[i+1])|; giữ điểm thẳng hàng thì đổi `<= 0` thành `< 0`."
+ },
+ {
+  "id": "point_in_polygon",
+  "title": "Điểm trong đa giác, giao đoạn thẳng — code",
+  "keys": [
+   "diem trong da giac",
+   "point in polygon",
+   "giao doan thang",
+   "segment intersection",
+   "nam tren canh",
+   "ray casting"
+  ],
+  "body": "```cpp\ntypedef long long ll; struct P { ll x, y; };\nll cross(P o, P a, P b) { return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x); }\nbool onSeg(P a, P b, P p) { return cross(a, b, p) == 0 && min(a.x, b.x) <= p.x && p.x <= max(a.x, b.x) && min(a.y, b.y) <= p.y && p.y <= max(a.y, b.y); }\n// 1: trong, 0: trên cạnh, -1: ngoài\nint inPolygon(const vector<P>& poly, P p) { bool in = false; int n = poly.size();\n  for (int i = 0; i < n; ++i) { P a = poly[i], b = poly[(i + 1) % n]; if (onSeg(a, b, p)) return 0;\n    if ((a.y > p.y) != (b.y > p.y) && (cross(a, b, p) > 0) == (b.y > a.y)) in = !in; }\n  return in ? 1 : -1; }\nbool segInter(P a, P b, P c, P d) { ll d1 = cross(a, b, c), d2 = cross(a, b, d), d3 = cross(c, d, a), d4 = cross(c, d, b);\n  if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;\n  return onSeg(a, b, c) || onSeg(a, b, d) || onSeg(c, d, a) || onSeg(c, d, b); }\n```"
+ },
+ {
+  "id": "suffix_array_code",
+  "title": "Mảng hậu tố O(n log n) + LCP (Kasai) — code",
+  "keys": [
+   "suffix array",
+   "mang hau to",
+   "lcp",
+   "kasai",
+   "so xau con khac nhau",
+   "hau to",
+   "sap xep hau to"
+  ],
+  "body": "```cpp\nvector<int> suffixArray(const string& s0) { string s = s0 + char(0); int n = s.size();\n  vector<int> p(n), c(n), pn(n), cn(n), cnt(max(256, n));\n  for (char ch : s) cnt[(unsigned char)ch]++; for (int i = 1; i < 256; ++i) cnt[i] += cnt[i - 1];\n  for (int i = n - 1; i >= 0; --i) p[--cnt[(unsigned char)s[i]]] = i;\n  int cls = 1; c[p[0]] = 0; for (int i = 1; i < n; ++i) { if (s[p[i]] != s[p[i - 1]]) ++cls; c[p[i]] = cls - 1; }\n  for (int h = 0; (1 << h) < n; ++h) {\n    for (int i = 0; i < n; ++i) pn[i] = ((p[i] - (1 << h)) % n + n) % n;\n    fill(cnt.begin(), cnt.begin() + cls, 0); for (int i = 0; i < n; ++i) cnt[c[pn[i]]]++;\n    for (int i = 1; i < cls; ++i) cnt[i] += cnt[i - 1];\n    for (int i = n - 1; i >= 0; --i) p[--cnt[c[pn[i]]]] = pn[i];\n    cn[p[0]] = 0; cls = 1;\n    for (int i = 1; i < n; ++i) { pair<int,int> cur = {c[p[i]], c[(p[i] + (1 << h)) % n]}, prev = {c[p[i - 1]], c[(p[i - 1] + (1 << h)) % n]};\n      if (cur != prev) ++cls; cn[p[i]] = cls - 1; }\n    c.swap(cn); }\n  p.erase(p.begin()); return p; }\nvector<int> lcpArray(const string& s, const vector<int>& sa) { int n = s.size(), k = 0; vector<int> rk(n), lcp(max(0, n - 1));\n  for (int i = 0; i < n; ++i) rk[sa[i]] = i;\n  for (int i = 0; i < n; ++i) { if (rk[i] == n - 1) { k = 0; continue; } int j = sa[rk[i] + 1];\n    while (i + k < n && j + k < n && s[i + k] == s[j + k]) ++k; lcp[rk[i]] = k; if (k) --k; }\n  return lcp; }  // lcp[i] = LCP(sa[i], sa[i+1])\n```\nSố xâu con khác nhau = n(n+1)/2 − Σ lcp."
+ },
+ {
+  "id": "manacher_code",
+  "title": "Manacher (palindrome dài nhất) — code",
+  "keys": [
+   "manacher",
+   "palindrome dai nhat",
+   "xau doi xung dai nhat",
+   "longest palindromic substring",
+   "dem palindrome"
+  ],
+  "body": "```cpp\n// d1[i]: số palindrome lẻ tâm i (bán kính), d2[i]: số palindrome chẵn tâm giữa i-1 và i\nvoid manacher(const string& s, vector<int>& d1, vector<int>& d2) { int n = s.size(); d1.assign(n, 0); d2.assign(n, 0);\n  for (int i = 0, l = 0, r = -1; i < n; ++i) { int k = (i > r) ? 1 : min(d1[l + r - i], r - i + 1);\n    while (i - k >= 0 && i + k < n && s[i - k] == s[i + k]) ++k; d1[i] = k--; if (i + k > r) { l = i - k; r = i + k; } }\n  for (int i = 0, l = 0, r = -1; i < n; ++i) { int k = (i > r) ? 0 : min(d2[l + r - i + 1], r - i + 1);\n    while (i - k - 1 >= 0 && i + k < n && s[i - k - 1] == s[i + k]) ++k; d2[i] = k--; if (i + k > r) { l = i - k - 1; r = i + k; } } }\n```\nPalindrome dài nhất = max(2·d1[i] − 1, 2·d2[i]). Tổng số palindrome = Σ d1 + Σ d2."
+ },
+ {
+  "id": "z_function_code",
+  "title": "Z-function — code",
+  "keys": [
+   "z function",
+   "z-function",
+   "z algorithm",
+   "tien to chung dai nhat",
+   "tim mau",
+   "lap xau"
+  ],
+  "body": "```cpp\nvector<int> zfunc(const string& s) { int n = s.size(); vector<int> z(n);\n  for (int i = 1, l = 0, r = 0; i < n; ++i) { if (i < r) z[i] = min(r - i, z[i - l]);\n    while (i + z[i] < n && s[z[i]] == s[i + z[i]]) ++z[i]; if (i + z[i] > r) { l = i; r = i + z[i]; } }\n  z[0] = n; return z; }\n```\nTìm P trong T: `zfunc(P + '#' + T)`, vị trí có z = |P|. Chu kỳ nhỏ nhất: p nhỏ nhất chia hết n với i + z[i] = n."
+ },
+ {
+  "id": "number_theory_code",
+  "title": "Euclid mở rộng, CRT, phi Euler — code",
+  "keys": [
+   "euclid mo rong",
+   "extended gcd",
+   "nghich dao modulo",
+   "crt",
+   "dinh ly so du trung hoa",
+   "phi euler",
+   "totient",
+   "ax + by"
+  ],
+  "body": "```cpp\nlong long extgcd(long long a, long long b, long long& x, long long& y) { if (!b) { x = 1; y = 0; return a; }\n  long long g = extgcd(b, a % b, y, x); y -= a / b * x; return g; }\n// x ≡ r1 (mod m1), x ≡ r2 (mod m2) → trả về {r, lcm} hoặc {-1, -1} nếu vô nghiệm\npair<long long, long long> crt(long long r1, long long m1, long long r2, long long m2) { long long p, q; long long g = extgcd(m1, m2, p, q);\n  if ((r2 - r1) % g) return {-1, -1}; long long l = m1 / g * m2;\n  long long t = (__int128)((r2 - r1) / g) * p % (m2 / g); long long r = ((__int128)m1 * t + r1) % l; if (r < 0) r += l; return {r, l}; }\nlong long phi(long long n) { long long r = n; for (long long p = 2; p * p <= n; ++p) if (n % p == 0) { while (n % p == 0) n /= p; r -= r / p; }\n  if (n > 1) r -= r / n; return r; }\n```\nSàng phi cho mọi số ≤ N: `phi[i] = i`; với mỗi nguyên tố p: `phi[j] -= phi[j] / p` cho j bội p."
+ },
+ {
+  "id": "functional_graph",
+  "title": "Đồ thị hàm, phát hiện chu trình, nhảy k bước",
+  "keys": [
+   "do thi ham",
+   "functional graph",
+   "moi dinh mot canh ra",
+   "nhay k buoc",
+   "k buoc",
+   "chu trinh",
+   "floyd",
+   "rua va tho",
+   "successor"
+  ],
+  "body": "Mỗi đỉnh có đúng một cạnh ra f(v): mọi đường đi rơi vào một chu trình.\n- Vị trí sau k bước (k tới 10^18): nhảy nhị phân `up[j][v] = up[j-1][up[j-1][v]]`, O(n log k).\n- Tìm chu trình từ x (Floyd): `a = f(x), b = f(f(x))` đến khi gặp; độ dài chu trình = số bước để quay lại.\n- Mọi đỉnh: tô màu 0/1/2 (chưa thăm / đang trên đường / xong), khi gặp đỉnh màu 1 là vừa khép một chu trình mới."
+ },
+ {
+  "id": "bipartite_check",
+  "title": "Kiểm tra đồ thị hai phía (tô 2 màu)",
+  "keys": [
+   "hai phia",
+   "bipartite",
+   "to mau",
+   "2 mau",
+   "chu trinh le",
+   "chia hai nhom",
+   "khong cung nhom"
+  ],
+  "body": "BFS/DFS tô màu 0/1; gặp cạnh nối hai đỉnh cùng màu ⇒ có chu trình lẻ ⇒ không hai phía. Với \"cặp phải khác nhóm\" thêm điều kiện dạng 2-SAT hoặc DSU có chẵn lẻ (lưu `parity[v]` = khác màu với cha)."
+ },
+ {
+  "id": "edit_distance_code",
+  "title": "LCS và khoảng cách sửa xâu (edit distance) — code",
+  "keys": [
+   "lcs",
+   "xau con chung dai nhat",
+   "edit distance",
+   "khoang cach levenshtein",
+   "bien doi xau",
+   "it thao tac nhat",
+   "chen xoa thay"
+  ],
+  "body": "```cpp\nint editDistance(const string& a, const string& b) { int n = a.size(), m = b.size(); vector<int> prev(m + 1), cur(m + 1);\n  iota(prev.begin(), prev.end(), 0);\n  for (int i = 1; i <= n; ++i) { cur[0] = i;\n    for (int j = 1; j <= m; ++j) cur[j] = min({prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] != b[j - 1])});\n    swap(prev, cur); }\n  return prev[m]; }\n```\nLCS: `dp[i][j] = a[i]==b[j] ? dp[i-1][j-1]+1 : max(dp[i-1][j], dp[i][j-1])`; truy vết ngược để in xâu. Chỉ cần độ dài thì giữ 2 hàng."
+ },
+ {
+  "id": "knapsack_variants_code",
+  "title": "Đổi tiền, đếm cách, cái túi — code",
+  "keys": [
+   "doi tien",
+   "coin change",
+   "dem so cach",
+   "menh gia",
+   "it dong xu nhat",
+   "cai tui",
+   "knapsack"
+  ],
+  "body": "```cpp\n// Ít đồng xu nhất để được S (mỗi mệnh giá dùng không giới hạn); -1 nếu không được\nlong long minCoins(const vector<int>& c, int S) { const long long INF = 1e18; vector<long long> dp(S + 1, INF); dp[0] = 0;\n  for (int s = 1; s <= S; ++s) for (int x : c) if (x <= s && dp[s - x] + 1 < dp[s]) dp[s] = dp[s - x] + 1;\n  return dp[S] >= INF ? -1 : dp[S]; }\n// Số cách (không phân biệt thứ tự) — vòng mệnh giá ở ngoài\nlong long countWays(const vector<int>& c, int S, long long MOD) { vector<long long> dp(S + 1); dp[0] = 1;\n  for (int x : c) for (int s = x; s <= S; ++s) dp[s] = (dp[s] + dp[s - x]) % MOD; return dp[S]; }\n```\nĐếm có phân biệt thứ tự: đổi vòng — tổng s ở ngoài, mệnh giá ở trong."
+ },
+ {
+  "id": "segment_tree_beats",
+  "title": "Segment tree beats (chmin/chmax trên đoạn)",
+  "keys": [
+   "chmin",
+   "chmax",
+   "a_i = min(a_i, x)",
+   "segment tree beats",
+   "ji driver",
+   "gan min doan"
+  ],
+  "body": "Mỗi nút lưu max, số lần xuất hiện max, max thứ hai (nghiêm ngặt), tổng. Thao tác `a_i = min(a_i, x)` trên đoạn:\n- x ≥ max: bỏ qua; max2 < x < max: chỉ sửa max và tổng (sum −= (max − x)·cnt) rồi đánh dấu lười; còn lại: đi xuống con.\nĐộ phức tạp khấu trừ O((n + q) log n) cho chmin + truy vấn tổng (O(log² n) khi có thêm cộng đoạn)."
+ },
+ {
+  "id": "mo_updates",
+  "title": "Mo có cập nhật, Mo trên cây",
+  "keys": [
+   "mo co cap nhat",
+   "mo with updates",
+   "mo tren cay",
+   "mo on tree",
+   "truy van doan offline co sua"
+  ],
+  "body": "- **Có cập nhật điểm**: thêm chiều thời gian t; sort truy vấn theo (l/B, r/B, t) với B ≈ n^(2/3), tổng O(n^(5/3)).\n- **Trên cây**: duỗi bằng Euler tour (mỗi đỉnh vào và ra), đường u–v ứng với đoạn trên mảng tour; đỉnh xuất hiện 2 lần thì bỏ, xét riêng LCA."
+ },
+ {
+  "id": "randomization",
+  "title": "Ngẫu nhiên hoá: hash chống hack, xáo trộn, kiểm tra xác suất",
+  "keys": [
+   "ngau nhien",
+   "random",
+   "mt19937",
+   "hash chong hack",
+   "unordered_map cham",
+   "xao tron",
+   "xac suat dung"
+  ],
+  "body": "```cpp\nmt19937_64 rng(chrono::steady_clock::now().time_since_epoch().count());\nstruct SafeHash { size_t operator()(uint64_t x) const { static const uint64_t R = rng();\n  x += R + 0x9e3779b97f4a7c15ULL; x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL; x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL; return x ^ (x >> 31); } };\n// unordered_map<long long, int, SafeHash> m;   shuffle(v.begin(), v.end(), rng);\n```\n- Hash xâu với cơ số ngẫu nhiên; so sánh tập hợp bằng tổng/XOR các giá trị ngẫu nhiên gán cho phần tử.\n- Kiểm tra AB = C cho ma trận: nhân với vector ngẫu nhiên (Freivalds)."
+ },
+ {
+  "id": "implementation_tips",
+  "title": "Bài cài đặt / mô phỏng: lưới, xoay, ngày giờ",
+  "keys": [
+   "mo phong",
+   "simulation",
+   "cai dat",
+   "xoay ma tran",
+   "ngay thang",
+   "nam nhuan",
+   "luoi",
+   "xoan oc",
+   "spiral"
+  ],
+  "body": "- Xoay ma trận 90° theo chiều kim đồng hồ: `b[j][n-1-i] = a[i][j]`. Duyệt xoắn ốc: 4 biên top/bottom/left/right co dần.\n- Năm nhuận: `(y % 4 == 0 && y % 100 != 0) || y % 400 == 0`. Đổi ngày thành số ngày tính từ mốc để trừ cho nhau.\n- Hướng đi trên lưới: mảng `dx/dy` + chỉ số hướng; rẽ phải là `(d + 1) % 4`.\n- Viết từng hàm nhỏ, thử ngay trên ví dụ; bài mô phỏng sai chủ yếu vì lệch chỉ số và trường hợp biên."
+ },
+ {
+  "id": "cpp_stl_cheatsheet",
+  "title": "C++ STL thường dùng và độ phức tạp",
+  "keys": [
+   "stl",
+   "vector",
+   "map",
+   "set",
+   "lower_bound",
+   "sort",
+   "priority_queue",
+   "comparator",
+   "c++ co ban",
+   "pair"
+  ],
+  "body": "- `sort(v.begin(), v.end(), [](auto& a, auto& b){ return a.second > b.second; })` — O(n log n); `stable_sort` giữ thứ tự bằng nhau.\n- `lower_bound` (≥ x) / `upper_bound` (> x) trên mảng đã sort hoặc `set/map` (dùng hàm thành viên `s.lower_bound(x)`, không dùng `std::lower_bound` cho set — O(n)).\n- `priority_queue<int, vector<int>, greater<int>>` là heap nhỏ nhất. `map/set`: O(log n); `unordered_map`: O(1) trung bình nhưng có thể bị hack.\n- `vector::erase` ở giữa O(n); `deque` thêm/bớt hai đầu O(1). `string s; s += c` O(1) khấu trừ, `s = s + c` O(n).\n- `accumulate(v.begin(), v.end(), 0LL)` (chú ý `0LL`), `iota`, `unique` + `erase` để nén, `__builtin_popcountll`, `__lg`."
+ },
+ {
+  "id": "python_cp_tips",
+  "title": "Python cho thi đấu: đọc nhanh, đệ quy, tốc độ",
+  "keys": [
+   "python",
+   "pypy",
+   "sys.stdin",
+   "recursionlimit",
+   "doc nhanh python",
+   "python cham",
+   "list comprehension"
+  ],
+  "body": "```python\nimport sys\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0]); a = list(map(int, data[1:1 + n]))\n    sys.stdout.write(\"\\n\".join(map(str, a)) + \"\\n\")\nmain()\n```\n- Gói code trong hàm `main()` (biến cục bộ nhanh hơn). In nhiều dòng: gom vào list rồi `join` một lần.\n- Đệ quy sâu: `sys.setrecursionlimit(1 << 20)` vẫn dễ tràn stack — chuyển sang vòng lặp/stack tự quản.\n- Python chậm hơn C++ 10–50 lần: ~10^7 thao tác đơn giản mỗi giây. Dùng `heapq`, `bisect`, `collections.deque/Counter/defaultdict`, `itertools`, `functools.lru_cache`."
+ },
+ {
+  "id": "debugging_cpp",
+  "title": "Gỡ lỗi C++: sanitizer, assert, in debug",
+  "keys": [
+   "debug",
+   "go loi",
+   "segmentation fault",
+   "runtime error",
+   "sanitizer",
+   "assert",
+   "tran mang",
+   "undefined behavior"
+  ],
+  "body": "- Biên dịch gỡ lỗi: `g++ -std=c++17 -O0 -g -fsanitize=address,undefined -D_GLIBCXX_DEBUG main.cpp` — báo ngay truy cập ngoài mảng, tràn số có dấu, dùng biến chưa khởi tạo.\n- `assert(0 <= i && i < n);` ở chỗ nghi ngờ; in debug ra `cerr` (không ảnh hưởng output chấm).\n- Lỗi hay gặp: mảng cục bộ lớn trong `main` (tràn stack, khai báo toàn cục), quên reset giữa các test, `int` tràn khi nhân, so sánh `size()` (không dấu) với số âm."
+ },
+ {
+  "id": "problem_solving_method",
+  "title": "Phương pháp tìm lời giải cho bài khó",
+  "keys": [
+   "bai kho",
+   "khong nghi ra",
+   "tim loi giai",
+   "goi y",
+   "phuong phap",
+   "approach",
+   "observation",
+   "quan sat"
+  ],
+  "body": "1. Viết lại đề bằng lời của mình; đặt tên đại lượng; làm tay 2–3 ví dụ nhỏ.\n2. Giải phiên bản dễ hơn: n nhỏ (vét cạn), một chiều thay vì hai chiều, cây là đường thẳng, giá trị chỉ 0/1.\n3. Tìm bất biến/đơn điệu: đáp án có đơn điệu theo tham số (→ chặt nhị phân)? Có thứ tự xử lý tốt (→ tham lam/sweep)? Trạng thái nhỏ (→ DP)?\n4. Đảo ngược bài toán: xử lý ngược thời gian (xoá thành thêm → DSU), đếm phần bù, cố định một phần tử rồi đếm phần còn lại.\n5. Đoán quy luật bằng brute force cho n nhỏ, rồi chứng minh."
+ },
+ {
+  "id": "web_navbar",
+  "kind": "web",
+  "title": "Thanh điều hướng dính + menu điện thoại",
+  "keys": [
+   "navbar",
+   "menu",
+   "thanh dieu huong",
+   "header",
+   "hamburger",
+   "menu dien thoai",
+   "sticky"
+  ],
+  "body": "```html\n<header class=\"nav\"><a class=\"brand\" href=\"#\">Tên</a>\n  <button class=\"menu-btn\" aria-expanded=\"false\" aria-controls=\"links\">Menu</button>\n  <nav id=\"links\"><a href=\"#gioi-thieu\">Giới thiệu</a><a href=\"#du-an\">Dự án</a><a href=\"#lien-he\">Liên hệ</a></nav></header>\n<style>\n.nav { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; padding: 12px 20px;\n  backdrop-filter: blur(10px); background: color-mix(in srgb, var(--bg) 80%, transparent); }\n.nav nav { display: flex; gap: 20px; } .menu-btn { display: none; }\n@media (max-width: 720px) { .menu-btn { display: block; } .nav nav { display: none; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; padding: 16px; background: var(--bg); }\n  .nav nav.open { display: flex; } }\nhtml { scroll-behavior: smooth; } section { scroll-margin-top: 72px; }\n</style>\n<script>\nconst btn = document.querySelector(\".menu-btn\"), links = document.getElementById(\"links\");\nbtn.addEventListener(\"click\", () => { const open = links.classList.toggle(\"open\"); btn.setAttribute(\"aria-expanded\", open); });\nlinks.addEventListener(\"click\", (e) => { if (e.target.closest(\"a\")) { links.classList.remove(\"open\"); btn.setAttribute(\"aria-expanded\", false); } });\n</script>\n```"
+ },
+ {
+  "id": "web_hero",
+  "kind": "web",
+  "title": "Phần hero (màn hình đầu tiên) hiệu quả",
+  "keys": [
+   "hero",
+   "banner",
+   "man hinh dau",
+   "tieu de lon",
+   "landing",
+   "trang gioi thieu",
+   "call to action",
+   "cta"
+  ],
+  "body": "- Một tiêu đề nói rõ giá trị (≤ 10 từ), một câu phụ giải thích, 1 nút chính + 1 nút phụ; ảnh/minh hoạ ở bên phải hoặc nền.\n- `min-height: min(90vh, 760px)`; căn giữa bằng grid; tiêu đề `clamp(2.2rem, 6vw, 4rem)`, `letter-spacing: -.02em`.\n- Nền đẹp mà nhẹ: gradient nhiều lớp `radial-gradient(600px 400px at 80% 0%, color-mix(in srgb, var(--accent) 35%, transparent), transparent)`.\n- Bên dưới hero: dải \"tin cậy\" (số liệu, logo đối tác, đánh giá) trước phần tính năng."
+ },
+ {
+  "id": "web_pricing_cards",
+  "kind": "web",
+  "title": "Thẻ tính năng, bảng giá, đánh giá",
+  "keys": [
+   "bang gia",
+   "pricing",
+   "goi",
+   "the",
+   "card",
+   "tinh nang",
+   "features",
+   "danh gia",
+   "testimonial"
+  ],
+  "body": "- Thẻ: `border-radius: 16px; padding: 24px; border: 1px solid var(--line); background: var(--surface); transition: transform .2s, box-shadow .2s` và `:hover { transform: translateY(-4px); box-shadow: var(--shadow) }`.\n- Bảng giá: 3 gói, gói giữa nổi bật (viền màu nhấn, nhãn \"Phổ biến\"), giá to, danh sách quyền lợi có biểu tượng dấu tích SVG, nút ở cuối thẻ (`margin-top: auto` trong flex cột để các nút thẳng hàng).\n- Công tắc tháng/năm: lưu giá trong `data-month`/`data-year`, đổi text bằng JS."
+ },
+ {
+  "id": "web_dialog_modal",
+  "kind": "web",
+  "title": "Hộp thoại (modal) bằng <dialog>",
+  "keys": [
+   "modal",
+   "popup",
+   "hop thoai",
+   "dialog",
+   "cua so noi",
+   "xac nhan"
+  ],
+  "body": "```html\n<button id=\"open\">Mở</button>\n<dialog id=\"dlg\"><form method=\"dialog\"><h2>Tiêu đề</h2><p>Nội dung</p><button value=\"ok\">Đồng ý</button><button value=\"cancel\">Huỷ</button></form></dialog>\n<script>\nconst dlg = document.getElementById(\"dlg\");\ndocument.getElementById(\"open\").addEventListener(\"click\", () => dlg.showModal());\ndlg.addEventListener(\"close\", () => console.log(\"Chọn:\", dlg.returnValue));\ndlg.addEventListener(\"click\", (e) => { if (e.target === dlg) dlg.close(\"cancel\"); }); // bấm ra ngoài để đóng\n</script>\n<style> dialog::backdrop { background: rgb(0 0 0 / .5); backdrop-filter: blur(2px); } </style>\n```\n`<dialog>` tự lo phím Esc, khoá focus và khả năng truy cập — không cần thư viện."
+ },
+ {
+  "id": "web_tabs_accordion",
+  "kind": "web",
+  "title": "Tab và accordion (câu hỏi thường gặp)",
+  "keys": [
+   "tab",
+   "accordion",
+   "faq",
+   "cau hoi thuong gap",
+   "thu gon",
+   "mo rong",
+   "details"
+  ],
+  "body": "- Accordion không cần JS: `<details><summary>Câu hỏi</summary><p>Trả lời</p></details>`; thêm `name=\"faq\"` cho các `<details>` để chỉ mở một mục.\n- Tab:\n```html\n<div role=\"tablist\"><button role=\"tab\" aria-selected=\"true\" data-tab=\"a\">A</button><button role=\"tab\" aria-selected=\"false\" data-tab=\"b\">B</button></div>\n<section data-panel=\"a\">…</section><section data-panel=\"b\" hidden>…</section>\n<script>\ndocument.querySelector(\"[role=tablist]\").addEventListener(\"click\", (e) => {\n  const tab = e.target.closest(\"[role=tab]\"); if (!tab) return;\n  document.querySelectorAll(\"[role=tab]\").forEach((t) => t.setAttribute(\"aria-selected\", t === tab));\n  document.querySelectorAll(\"[data-panel]\").forEach((p) => (p.hidden = p.dataset.panel !== tab.dataset.tab));\n});\n</script>\n```"
+ },
+ {
+  "id": "web_carousel",
+  "kind": "web",
+  "title": "Slider / carousel bằng scroll-snap",
+  "keys": [
+   "slider",
+   "carousel",
+   "truot anh",
+   "trinh chieu",
+   "anh truot",
+   "gallery",
+   "thu vien anh"
+  ],
+  "body": "```css\n.track { display: grid; grid-auto-flow: column; grid-auto-columns: min(85%, 420px); gap: 16px;\n  overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }\n.track > * { scroll-snap-align: start; }\n```\n```js\nconst track = document.querySelector(\".track\");\ndocument.querySelector(\".next\").onclick = () => track.scrollBy({ left: track.clientWidth * 0.9, behavior: \"smooth\" });\ndocument.querySelector(\".prev\").onclick = () => track.scrollBy({ left: -track.clientWidth * 0.9, behavior: \"smooth\" });\n```\nVuốt trên điện thoại hoạt động sẵn; tự chạy thì dùng `setInterval` và dừng khi người dùng chạm (`pointerdown`)."
+ },
+ {
+  "id": "web_dark_toggle",
+  "kind": "web",
+  "title": "Nút chuyển sáng/tối có ghi nhớ",
+  "keys": [
+   "dark mode",
+   "che do toi",
+   "light mode",
+   "doi giao dien",
+   "theme toggle",
+   "sang toi"
+  ],
+  "body": "```html\n<script>try { const t = localStorage.getItem(\"theme\"); if (t) document.documentElement.dataset.theme = t; } catch {}</script>\n<style>\n:root { --bg: #fff; --text: #111; } :root[data-theme=\"dark\"] { --bg: #0b0d12; --text: #eee; }\n@media (prefers-color-scheme: dark) { :root:not([data-theme]) { --bg: #0b0d12; --text: #eee; } }\n</style>\n<button id=\"theme\">Đổi giao diện</button>\n<script>\ndocument.getElementById(\"theme\").addEventListener(\"click\", () => {\n  const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === \"dark\" : matchMedia(\"(prefers-color-scheme: dark)\").matches;\n  const next = dark ? \"light\" : \"dark\"; document.documentElement.dataset.theme = next;\n  try { localStorage.setItem(\"theme\", next); } catch {}\n});\n</script>\n```\nĐoạn script nhỏ đặt trong `<head>` để không bị chớp sáng khi tải trang."
+ },
+ {
+  "id": "web_drag_drop",
+  "kind": "web",
+  "title": "Kéo thả (danh sách, bảng Kanban)",
+  "keys": [
+   "keo tha",
+   "drag",
+   "drop",
+   "kanban",
+   "sap xep keo",
+   "trello",
+   "sortable"
+  ],
+  "body": "```js\nlet dragging = null;\ndocument.addEventListener(\"dragstart\", (e) => { dragging = e.target.closest(\"[draggable=true]\"); dragging?.classList.add(\"dragging\"); });\ndocument.addEventListener(\"dragend\", () => { dragging?.classList.remove(\"dragging\"); dragging = null; });\ndocument.querySelectorAll(\".column\").forEach((col) => {\n  col.addEventListener(\"dragover\", (e) => { e.preventDefault();\n    const after = [...col.querySelectorAll(\"[draggable=true]:not(.dragging)\")].find((el) => e.clientY < el.getBoundingClientRect().top + el.offsetHeight / 2);\n    if (dragging) col.insertBefore(dragging, after || null); });\n});\n```\nKéo thả HTML5 không chạy trên cảm ứng: với điện thoại dùng Pointer Events (`pointerdown/move/up`) hoặc thêm nút \"lên/xuống\". Lưu thứ tự vào localStorage sau mỗi lần thả."
+ },
+ {
+  "id": "web_cart",
+  "kind": "web",
+  "title": "Cửa hàng: danh sách sản phẩm, giỏ hàng, tổng tiền",
+  "keys": [
+   "gio hang",
+   "cart",
+   "cua hang",
+   "ban hang",
+   "shop",
+   "san pham",
+   "thanh toan",
+   "e-commerce",
+   "tong tien"
+  ],
+  "body": "```js\nconst products = [{ id: 1, name: \"Áo thun\", price: 150000 }, { id: 2, name: \"Mũ\", price: 90000 }];\nlet cart = JSON.parse(localStorage.getItem(\"cart\") || \"{}\");      // id -> số lượng\nconst money = (v) => v.toLocaleString(\"vi-VN\", { style: \"currency\", currency: \"VND\" });\nfunction setQty(id, q) { if (q <= 0) delete cart[id]; else cart[id] = q; localStorage.setItem(\"cart\", JSON.stringify(cart)); renderCart(); }\nfunction renderCart() {\n  const rows = Object.entries(cart).map(([id, q]) => ({ ...products.find((p) => p.id == id), q }));\n  document.querySelector(\"#cart\").innerHTML = rows.map((r) => `<li>${r.name} × ${r.q} = ${money(r.price * r.q)}</li>`).join(\"\") || \"<li>Giỏ trống</li>\";\n  document.querySelector(\"#total\").textContent = money(rows.reduce((s, r) => s + r.price * r.q, 0));\n  document.querySelector(\"#count\").textContent = rows.reduce((s, r) => s + r.q, 0);\n}\n```\nCó lọc theo danh mục, tìm kiếm, sắp xếp giá; nút \"Thêm vào giỏ\" cập nhật số trên biểu tượng giỏ. Không làm thanh toán thật — chỉ mô phỏng."
+ },
+ {
+  "id": "web_quiz_app",
+  "kind": "web",
+  "title": "Ứng dụng trắc nghiệm / flashcard",
+  "keys": [
+   "trac nghiem",
+   "quiz",
+   "cau hoi",
+   "kiem tra",
+   "flashcard",
+   "on tap",
+   "bai thi"
+  ],
+  "body": "- Dữ liệu là mảng `{ q, options: [...], answer }`; trạng thái `{ index, score, picked }`; một hàm `render()` vẽ theo trạng thái.\n- Sau khi chọn: khoá các nút, tô đúng/sai, hiện giải thích, nút \"Câu tiếp\". Cuối bài: điểm, % đúng, nút làm lại, lưu điểm cao.\n- Xáo trộn câu hỏi bằng Fisher–Yates: `for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }`.\n- Thêm đồng hồ đếm ngược bằng `setInterval` và thanh tiến trình."
+ },
+ {
+  "id": "web_maps",
+  "kind": "web",
+  "title": "Bản đồ với Leaflet",
+  "keys": [
+   "ban do",
+   "map",
+   "leaflet",
+   "dia diem",
+   "vi tri",
+   "gps",
+   "toa do"
+  ],
+  "body": "```html\n<link rel=\"stylesheet\" href=\"https://unpkg.com/leaflet@1.9.4/dist/leaflet.css\">\n<script src=\"https://unpkg.com/leaflet@1.9.4/dist/leaflet.js\"></script>\n<div id=\"map\" style=\"height: 420px\"></div>\n<script>\nconst map = L.map(\"map\").setView([21.0285, 105.8542], 13);   // Hà Nội\nL.tileLayer(\"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png\", { attribution: \"© OpenStreetMap\" }).addTo(map);\nL.marker([21.0285, 105.8542]).addTo(map).bindPopup(\"Hồ Gươm\");\n</script>\n```\nKhung bản đồ phải có chiều cao cố định; giữ dòng ghi công OpenStreetMap."
+ },
+ {
+  "id": "web_visual_effects",
+  "kind": "web",
+  "title": "Hiệu ứng thị giác: gradient, kính mờ, bóng, viền sáng",
+  "keys": [
+   "gradient",
+   "glassmorphism",
+   "kinh mo",
+   "bong do",
+   "shadow",
+   "hieu ung dep",
+   "neon",
+   "noi bat"
+  ],
+  "body": "- Kính mờ: `background: rgb(255 255 255 / .06); backdrop-filter: blur(14px); border: 1px solid rgb(255 255 255 / .12)`.\n- Bóng nhiều lớp mềm: `box-shadow: 0 1px 2px rgb(0 0 0 / .2), 0 12px 32px rgb(0 0 0 / .18)`.\n- Chữ gradient: `background: linear-gradient(90deg, #6d8bff, #b06bff); -webkit-background-clip: text; background-clip: text; color: transparent`.\n- Viền gradient: lớp `::before` với `inset: -1px; border-radius: inherit; background: linear-gradient(...); z-index: -1`.\n- Dùng tiết chế: 1–2 hiệu ứng nổi bật mỗi trang; đảm bảo chữ vẫn đủ tương phản."
+ },
+ {
+  "id": "web_typography",
+  "kind": "web",
+  "title": "Kiểu chữ: chọn font, thang cỡ, độ dài dòng",
+  "keys": [
+   "font",
+   "kieu chu",
+   "typography",
+   "co chu",
+   "chu dep",
+   "google fonts",
+   "tieu de",
+   "doan van"
+  ],
+  "body": "- Font tiếng Việt tốt trên Google Fonts: Be Vietnam Pro, Inter, Manrope, Plus Jakarta Sans, Lexend (giao diện); Lora, Merriweather (bài viết); JetBrains Mono (code). Luôn thêm `&display=swap`.\n- Thang cỡ: 14/16/18/20/24/32/40/56 px; thân bài 16–18 px, `line-height: 1.6`; tiêu đề `line-height: 1.15–1.25`.\n- Độ dài dòng 60–75 ký tự: `max-width: 68ch` cho đoạn văn.\n- Tối đa 2 họ font; phân cấp bằng cỡ chữ và độ đậm (400/600/700) chứ không bằng nhiều màu."
+ },
+ {
+  "id": "web_landing_content",
+  "kind": "web",
+  "title": "Cấu trúc nội dung trang giới thiệu sản phẩm",
+  "keys": [
+   "landing page",
+   "trang san pham",
+   "gioi thieu san pham",
+   "noi dung",
+   "marketing",
+   "copywriting",
+   "startup"
+  ],
+  "body": "Thứ tự hiệu quả: Hero (giá trị + nút) → dải tin cậy (số liệu, đối tác) → vấn đề người dùng gặp → 3–6 tính năng (lợi ích, không chỉ mô tả) → cách hoạt động 3 bước → đánh giá thật → bảng giá → câu hỏi thường gặp → lời kêu gọi cuối → footer.\n- Viết tiêu đề theo lợi ích (\"Giải bài nhanh gấp đôi\") thay vì tính năng (\"Có AI\").\n- Mỗi phần một ý chính; nút kêu gọi lặp lại 2–3 lần trên trang."
+ },
+ {
+  "id": "web_performance",
+  "kind": "web",
+  "title": "Trang nhanh: ảnh, script, font",
+  "keys": [
+   "toc do",
+   "nhanh",
+   "performance",
+   "toi uu",
+   "lazy",
+   "anh nang",
+   "lighthouse",
+   "load cham"
+  ],
+  "body": "- Ảnh: `loading=\"lazy\"` (trừ ảnh đầu trang), `width`/`height` để không nhảy bố cục, định dạng WebP/AVIF, `srcset` cho nhiều kích thước.\n- Script: `defer` hoặc `type=\"module\"`; không tải thư viện lớn chỉ để dùng một hàm.\n- Font: `preconnect` tới fonts.googleapis.com và fonts.gstatic.com, chỉ tải các độ đậm cần dùng.\n- Hiệu ứng: dùng `transform/opacity`; `IntersectionObserver` thay cho lắng nghe `scroll` liên tục."
+ },
+ {
+  "id": "web_particles_bg",
+  "kind": "web",
+  "title": "Nền động nhẹ: hạt, sóng, lưới chấm",
+  "keys": [
+   "nen dong",
+   "particles",
+   "hat",
+   "background dong",
+   "hieu ung nen",
+   "sao bang",
+   "starfield"
+  ],
+  "body": "```js\nconst c = document.querySelector(\"#bg\"), ctx = c.getContext(\"2d\"); let W, H, dots = [];\nfunction resize() { W = c.width = innerWidth; H = c.height = innerHeight;\n  dots = Array.from({ length: Math.min(90, Math.floor(W * H / 18000)) }, () => ({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - .5) * .4, vy: (Math.random() - .5) * .4 })); }\nfunction frame() { ctx.clearRect(0, 0, W, H);\n  for (const d of dots) { d.x = (d.x + d.vx + W) % W; d.y = (d.y + d.vy + H) % H; ctx.fillStyle = \"rgba(140,160,255,.6)\"; ctx.fillRect(d.x, d.y, 2, 2); }\n  if (!matchMedia(\"(prefers-reduced-motion: reduce)\").matches) requestAnimationFrame(frame); }\naddEventListener(\"resize\", resize); resize(); frame();\n```\nCanvas `position: fixed; inset: 0; z-index: -1; pointer-events: none`. Giới hạn số hạt để máy yếu vẫn mượt."
+ },
+ {
+  "id": "web_forms_advanced",
+  "kind": "web",
+  "title": "Form nhiều bước, tải file, xem trước ảnh",
+  "keys": [
+   "form nhieu buoc",
+   "multi step",
+   "tai file",
+   "upload",
+   "xem truoc anh",
+   "preview",
+   "dang ky tai khoan"
+  ],
+  "body": "- Nhiều bước: mỗi bước một `<fieldset>`, chỉ hiện bước hiện tại; nút \"Tiếp\" chỉ cho đi tiếp khi các ô của bước đó `checkValidity()`; thanh tiến trình theo bước.\n- Xem trước ảnh: `input.addEventListener(\"change\", () => { img.src = URL.createObjectURL(input.files[0]); })`.\n- Không gửi dữ liệu đi đâu nếu không có máy chủ thật: hiển thị thông báo thành công và lưu bản nháp vào localStorage."
+ },
+ {
+  "id": "web_todo_kanban_state",
+  "kind": "web",
+  "title": "Quản lý trạng thái trong ứng dụng JS thuần",
+  "keys": [
+   "todo",
+   "ghi chu",
+   "quan ly trang thai",
+   "state",
+   "render",
+   "ung dung nho",
+   "crud",
+   "them sua xoa"
+  ],
+  "body": "```js\nconst state = { items: load(), filter: \"all\" };\nfunction load() { try { return JSON.parse(localStorage.getItem(\"items\")) || []; } catch { return []; } }\nfunction update(change) { change(state); localStorage.setItem(\"items\", JSON.stringify(state.items)); render(); }\nfunction render() {\n  const list = state.items.filter((i) => state.filter === \"all\" || (state.filter === \"done\") === i.done);\n  ul.replaceChildren(...list.map((i) => { const li = document.createElement(\"li\"); li.textContent = i.text; li.dataset.id = i.id; li.classList.toggle(\"done\", i.done); return li; }));\n}\n// thêm: update((s) => s.items.push({ id: crypto.randomUUID(), text, done: false }));\n```\nMột nguồn dữ liệu (`state`), mọi thay đổi đi qua `update`, giao diện luôn vẽ lại từ `state` — tránh lệch giữa dữ liệu và màn hình."
+ },
+ {
+  "id": "js_fundamentals",
+  "title": "JavaScript cốt lõi: phạm vi, closure, this, async/await",
+  "keys": [
+   "javascript",
+   "js",
+   "closure",
+   "this",
+   "async",
+   "await",
+   "promise",
+   "event loop",
+   "callback",
+   "let var const"
+  ],
+  "body": "- `let/const` có phạm vi khối; `var` theo hàm và bị \"hoisting\" — luôn dùng `const`, cần gán lại mới dùng `let`.\n- Closure: hàm nhớ biến của nơi nó được tạo — `function counter() { let n = 0; return () => ++n; }`.\n- `this` phụ thuộc cách gọi; hàm mũi tên lấy `this` của nơi định nghĩa (hợp cho callback trong class).\n- Bất đồng bộ: `async function f() { try { const r = await fetch(url); if (!r.ok) throw new Error(r.status); return await r.json(); } catch (e) { ... } }`. Chạy song song: `await Promise.all([a(), b()])`.\n- Event loop: code đồng bộ chạy hết → microtask (Promise) → task (setTimeout, sự kiện). Vòng lặp nặng làm treo giao diện — chia nhỏ hoặc dùng Web Worker."
+ },
+ {
+  "id": "js_array_methods",
+  "title": "Mảng và object trong JavaScript (map, filter, reduce, sort)",
+  "keys": [
+   "map",
+   "filter",
+   "reduce",
+   "sort",
+   "array",
+   "mang javascript",
+   "object",
+   "destructuring",
+   "spread"
+  ],
+  "body": "```js\nconst scores = [{ name: \"An\", s: 8 }, { name: \"Bình\", s: 9.5 }, { name: \"Chi\", s: 7 }];\nconst passed = scores.filter((x) => x.s >= 8).map((x) => x.name);          // [\"An\", \"Bình\"]\nconst avg = scores.reduce((sum, x) => sum + x.s, 0) / scores.length;\nconst ranked = [...scores].sort((a, b) => b.s - a.s);                       // sort số: phải có hàm so sánh\nconst byName = Object.fromEntries(scores.map((x) => [x.name, x.s]));\nconst { name, ...rest } = scores[0];                                        // destructuring\n```\n- `sort()` không có hàm so sánh sẽ so như chuỗi (`[10, 9, 1].sort()` → `[1, 10, 9]`) và sửa mảng gốc.\n- So sánh object bằng `===` là so tham chiếu; sao chép nông `{ ...o }`, sâu `structuredClone(o)`."
+ },
+ {
+  "id": "python_intermediate",
+  "title": "Python trung cấp: comprehension, dict, class, dataclass",
+  "keys": [
+   "python",
+   "list comprehension",
+   "dict",
+   "set",
+   "class",
+   "dataclass",
+   "lambda",
+   "generator",
+   "with open"
+  ],
+  "body": "```python\nfrom dataclasses import dataclass\nfrom collections import Counter, defaultdict\n\n@dataclass\nclass Student:\n    name: str\n    score: float = 0.0\n\nstudents = [Student(\"An\", 8), Student(\"Bình\", 9.5)]\ntop = [s.name for s in students if s.score >= 9]            # list comprehension\nby_letter = defaultdict(list)\nfor s in students:\n    by_letter[s.name[0]].append(s)\nfreq = Counter(\"abracadabra\").most_common(2)                  # [('a', 5), ('b', 2)]\nwith open(\"data.txt\", encoding=\"utf-8\") as f:                 # tự đóng file\n    lines = [line.strip() for line in f]\n```\n- Generator (`yield`) tiết kiệm bộ nhớ khi duyệt dữ liệu lớn. Không dùng list làm giá trị mặc định của tham số (`def f(a=[])`)."
+ },
+ {
+  "id": "cpp_oop",
+  "title": "C++ hướng đối tượng: class, constructor, const, toán tử",
+  "keys": [
+   "class",
+   "struct",
+   "constructor",
+   "huong doi tuong",
+   "oop",
+   "ke thua",
+   "operator overloading",
+   "const",
+   "c++ class"
+  ],
+  "body": "```cpp\nstruct Fraction {\n  long long num, den;\n  Fraction(long long n = 0, long long d = 1) : num(n), den(d) { normalize(); }\n  void normalize() { long long g = std::gcd(llabs(num), llabs(den)); if (g) { num /= g; den /= g; } if (den < 0) { num = -num; den = -den; } }\n  Fraction operator+(const Fraction& o) const { return Fraction(num * o.den + o.num * den, den * o.den); }\n  bool operator<(const Fraction& o) const { return (__int128)num * o.den < (__int128)o.num * den; }\n};\nstd::ostream& operator<<(std::ostream& os, const Fraction& f) { return os << f.num << \"/\" << f.den; }\n```\n- Truyền object lớn bằng `const T&` để không sao chép; hàm không sửa dữ liệu thì đánh dấu `const`.\n- Kế thừa + `virtual` cho đa hình; hàm huỷ của lớp cơ sở có hàm ảo phải là `virtual`."
+ },
+ {
+  "id": "cpp_pointers_memory",
+  "title": "C++: con trỏ, tham chiếu, bộ nhớ, smart pointer",
+  "keys": [
+   "con tro",
+   "pointer",
+   "tham chieu",
+   "reference",
+   "new delete",
+   "smart pointer",
+   "unique_ptr",
+   "memory leak",
+   "dangling"
+  ],
+  "body": "- Tham chiếu `int& r = x;` là tên khác của x; con trỏ `int* p = &x;` lưu địa chỉ, `*p` truy cập giá trị.\n- Tránh `new/delete` thủ công: dùng `vector`, `string`, `unique_ptr<T> p = make_unique<T>(...)` (tự giải phóng, RAII).\n- Lỗi thường gặp: trả về tham chiếu tới biến cục bộ; giữ con trỏ/iterator vào `vector` rồi `push_back` (vector cấp phát lại → con trỏ treo); dùng biến chưa khởi tạo.\n- Mảng tĩnh lớn khai báo toàn cục (vùng nhớ tĩnh) thay vì trong hàm (stack chỉ vài MB)."
+ },
+ {
+  "id": "sql_basics",
+  "title": "SQL cơ bản: SELECT, JOIN, GROUP BY, chỉ mục",
+  "keys": [
+   "sql",
+   "co so du lieu",
+   "database",
+   "select",
+   "join",
+   "group by",
+   "mysql",
+   "sqlite",
+   "truy van du lieu",
+   "index"
+  ],
+  "body": "```sql\nSELECT c.name, COUNT(o.id) AS orders, SUM(o.total) AS revenue\nFROM customers c\nLEFT JOIN orders o ON o.customer_id = c.id AND o.created_at >= '2026-01-01'\nGROUP BY c.id, c.name\nHAVING COUNT(o.id) > 0\nORDER BY revenue DESC\nLIMIT 10;\n```\n- `WHERE` lọc trước khi gộp nhóm, `HAVING` lọc sau. `LEFT JOIN` giữ cả khách chưa có đơn.\n- Tạo chỉ mục cho cột hay lọc/nối: `CREATE INDEX idx_orders_customer ON orders(customer_id);`.\n- Luôn dùng tham số (`?`/`:name`) thay vì ghép chuỗi để tránh SQL injection."
+ },
+ {
+  "id": "git_basics",
+  "title": "Git cơ bản: commit, nhánh, gộp, hoàn tác",
+  "keys": [
+   "git",
+   "github",
+   "commit",
+   "branch",
+   "nhanh",
+   "merge",
+   "rebase",
+   "push",
+   "pull",
+   "hoan tac"
+  ],
+  "body": "```sh\ngit init && git add . && git commit -m \"Khởi tạo dự án\"\ngit switch -c tinh-nang-moi          # tạo nhánh mới và chuyển sang\ngit add -p && git commit -m \"Thêm form liên hệ\"\ngit switch main && git merge tinh-nang-moi\ngit push -u origin main\n```\n- Xem lịch sử: `git log --oneline --graph`. Bỏ thay đổi chưa commit của một file: `git restore file`.\n- Sửa commit cuối (chưa push): `git commit --amend`. Hoàn tác commit đã push: `git revert <mã>` (tạo commit đảo ngược, an toàn).\n- `.gitignore` cho file sinh ra, mật khẩu, `node_modules/`, `.venv/`."
+ },
+ {
+  "id": "backtracking_code",
+  "title": "Đệ quy quay lui: tập con, hoán vị, N quân hậu — code",
+  "keys": [
+   "quay lui",
+   "backtracking",
+   "de quy",
+   "hoan vi",
+   "tap con",
+   "liet ke",
+   "n quan hau",
+   "to hop",
+   "sinh"
+  ],
+  "body": "```cpp\nint n, cnt = 0; vector<int> cur; vector<char> used;\nvoid permute() { if ((int)cur.size() == n) { ++cnt; return; }   // xử lý một hoán vị trong cur\n  for (int v = 1; v <= n; ++v) if (!used[v]) { used[v] = 1; cur.push_back(v); permute(); cur.pop_back(); used[v] = 0; } }\nint queens(int r, int N, int cols, int d1, int d2) { if (r == N) return 1; int res = 0;\n  for (int c = 0; c < N; ++c) if (!(cols >> c & 1) && !(d1 >> (r + c) & 1) && !(d2 >> (r - c + N) & 1))\n    res += queens(r + 1, N, cols | 1 << c, d1 | 1 << (r + c), d2 | 1 << (r - c + N));\n  return res; }\n```\n- Mẫu chung: chọn → đệ quy → bỏ chọn. Cắt nhánh sớm (kiểm tra điều kiện trước khi đi sâu) quyết định tốc độ.\n- Tập con của n phần tử: duyệt `mask` từ 0 đến 2^n − 1."
+ },
+ {
+  "id": "sorting_algorithms",
+  "title": "Các thuật toán sắp xếp: merge, quick, counting — code",
+  "keys": [
+   "sap xep",
+   "sorting",
+   "merge sort",
+   "quick sort",
+   "counting sort",
+   "on dinh",
+   "stable",
+   "bubble sort"
+  ],
+  "body": "```cpp\nvoid mergeSort(vector<int>& a, int l, int r, vector<int>& tmp) { if (r - l <= 1) return; int m = (l + r) / 2;\n  mergeSort(a, l, m, tmp); mergeSort(a, m, r, tmp); int i = l, j = m, k = l;\n  while (i < m || j < r) tmp[k++] = (j >= r || (i < m && a[i] <= a[j])) ? a[i++] : a[j++];\n  for (int t = l; t < r; ++t) a[t] = tmp[t]; }   // [l, r), ổn định, O(n log n)\n```\n- Quick sort trung bình O(n log n) nhưng tệ nhất O(n²) (chọn chốt ngẫu nhiên để tránh). Counting sort O(n + K) khi giá trị nhỏ.\n- Merge sort đếm được số nghịch thế: khi lấy từ nửa phải, cộng thêm `m − i`.\n- Trong thi đấu dùng `std::sort` (introsort) / `std::stable_sort`; tự viết khi đề yêu cầu hoặc cần đếm nghịch thế."
+ },
+ {
+  "id": "data_structures_intro",
+  "title": "Cấu trúc dữ liệu cơ bản: stack, queue, danh sách liên kết, bảng băm",
+  "keys": [
+   "cau truc du lieu",
+   "stack",
+   "ngan xep",
+   "queue",
+   "hang doi",
+   "linked list",
+   "danh sach lien ket",
+   "hash table",
+   "bang bam"
+  ],
+  "body": "- **Stack** (vào sau ra trước): kiểm tra ngoặc, khử đệ quy, stack đơn điệu. **Queue** (vào trước ra trước): BFS, mô phỏng hàng chờ.\n- **Danh sách liên kết**: chèn/xoá O(1) khi đã có vị trí, truy cập phần tử thứ k O(n); trong thi đấu thường thay bằng mảng `next/prev`.\n- **Bảng băm** (`unordered_map`, `dict`): tìm/thêm O(1) trung bình; **cây cân bằng** (`map`, `set`): O(log n) nhưng có thứ tự, tìm cận trên/dưới.\n- Chọn cấu trúc theo thao tác cần nhanh nhất: truy cập theo chỉ số → mảng; lấy min/max liên tục → heap; tìm theo khoá → hash/map."
+ },
+ {
+  "id": "complexity_analysis",
+  "title": "Phân tích độ phức tạp (Big-O) cho người mới",
+  "keys": [
+   "do phuc tap",
+   "big o",
+   "big-o",
+   "complexity",
+   "o(n)",
+   "danh gia thuat toan",
+   "thoi gian chay",
+   "amortized"
+  ],
+  "body": "- Đếm số lần thao tác cơ bản theo n, bỏ hằng số và bậc thấp: hai vòng lồng nhau đến n → O(n²); chia đôi mỗi bước → O(log n).\n- Vòng ngoài n, vòng trong chạy tổng cộng n lần (hai con trỏ) → O(n) chứ không phải O(n²).\n- Khấu trừ (amortized): `vector::push_back` đôi khi O(n) nhưng trung bình O(1); DSU nén đường gần như O(1).\n- Bộ nhớ: mảng `int` 10^7 phần tử ≈ 40 MB; `long long` gấp đôi; `vector<vector<int>>` có chi phí phụ cho mỗi vector con.\n- Ước lượng: ~10^8 phép đơn giản mỗi giây cho C++, ~10^7 cho Python."
+ },
+ {
+  "id": "learn_dp_path",
+  "title": "Lộ trình học quy hoạch động",
+  "keys": [
+   "hoc quy hoach dong",
+   "hoc dp",
+   "lo trinh",
+   "bat dau dp",
+   "dp kho",
+   "luyen dp",
+   "bai dp co ban"
+  ],
+  "body": "1. Nền tảng: Fibonacci có nhớ, leo cầu thang, đổi tiền, cái túi 0/1, LIS, LCS — tự viết lại không nhìn.\n2. Tư duy trạng thái: luôn trả lời \"dp[i] nghĩa là gì?\" bằng một câu trước khi viết công thức.\n3. Dạng phổ biến: DP đoạn, DP bitmask, DP trên cây, DP chữ số, DP xác suất/kỳ vọng.\n4. Tối ưu: bỏ chiều (cuộn mảng), tiền tố/hậu tố, deque đơn điệu, CHT, chia để trị, Knuth.\n5. Luyện: AtCoder Educational DP Contest (26 bài A–Z), CSES DP section, VNOI Wiki."
+ },
+ {
+  "id": "clean_code",
+  "title": "Viết code sạch, dễ đọc, dễ sửa",
+  "keys": [
+   "code sach",
+   "clean code",
+   "dat ten",
+   "refactor",
+   "de doc",
+   "tai cau truc",
+   "best practice"
+  ],
+  "body": "- Tên nói lên ý nghĩa (`dist`, `visited`, `totalPrice`), hàm ngắn làm một việc, tránh \"số ma thuật\" — đặt hằng `const int MAXN = 2e5 + 5`.\n- Tách phần đọc dữ liệu, xử lý, in kết quả; tránh lặp code (DRY) nhưng đừng trừu tượng hoá quá sớm.\n- Xử lý lỗi rõ ràng ở biên (đầu vào người dùng, mạng, file); bên trong tin tưởng dữ liệu đã kiểm tra.\n- Chú thích giải thích \"tại sao\", không lặp lại \"cái gì\" mà code đã nói."
+ },
+ {
+  "id": "testing_basics",
+  "title": "Kiểm thử: test biên, test ngẫu nhiên, unit test",
+  "keys": [
+   "kiem thu",
+   "test",
+   "unit test",
+   "test bien",
+   "pytest",
+   "assert",
+   "kiem tra code",
+   "test case"
+  ],
+  "body": "- Nhóm test cần có: ví dụ của đề, nhỏ nhất (n = 1, rỗng), lớn nhất (đo thời gian), đặc biệt (tất cả bằng nhau, âm, trùng lặp), ngẫu nhiên so với lời giải trâu.\n- Python: `pytest` với các hàm `def test_...(): assert f(x) == y`; JavaScript: `console.assert` hoặc Vitest/Jest.\n- Khi sửa lỗi: viết test tái hiện lỗi trước, sửa đến khi test qua, giữ test lại để lỗi không quay về."
+ },
+ {
+  "id": "web_responsive_table",
+  "kind": "web",
+  "title": "Bảng dữ liệu responsive, sắp xếp, tìm kiếm",
+  "keys": [
+   "bang",
+   "table",
+   "bang du lieu",
+   "sap xep bang",
+   "tim kiem bang",
+   "danh sach",
+   "quan ly",
+   "admin"
+  ],
+  "body": "```js\nlet sortKey = \"name\", asc = true;\nfunction renderTable(rows, q) {\n  const view = rows.filter((r) => Object.values(r).join(\" \").toLowerCase().includes(q.toLowerCase()))\n    .sort((a, b) => (a[sortKey] > b[sortKey] ? 1 : a[sortKey] < b[sortKey] ? -1 : 0) * (asc ? 1 : -1));\n  tbody.replaceChildren(...view.map((r) => { const tr = document.createElement(\"tr\");\n    for (const k of Object.keys(r)) { const td = document.createElement(\"td\"); td.textContent = r[k]; td.dataset.label = k; tr.append(td); } return tr; }));\n}\n```\n- Bảng rộng trên điện thoại: bọc trong `div { overflow-x: auto }`, hoặc dưới 640px chuyển mỗi hàng thành thẻ (`td::before { content: attr(data-label) }`).\n- Bấm tiêu đề cột để đổi `sortKey`/`asc`; hiện mũi tên chiều sắp xếp; `aria-sort` cho trình đọc màn hình."
+ },
+ {
+  "id": "web_grid_layouts",
+  "kind": "web",
+  "title": "Bố cục lưới thường gặp: dashboard, holy grail, masonry",
+  "keys": [
+   "grid",
+   "bo cuc luoi",
+   "dashboard",
+   "sidebar",
+   "holy grail",
+   "masonry",
+   "layout phuc tap",
+   "cot"
+  ],
+  "body": "```css\n.app { display: grid; grid-template: \"side head\" 64px \"side main\" 1fr / 240px 1fr; min-height: 100dvh; }\n.side { grid-area: side; } .head { grid-area: head; } .main { grid-area: main; padding: 24px; }\n@media (max-width: 800px) { .app { grid-template: \"head\" 56px \"main\" 1fr / 1fr; } .side { display: none; } }\n.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }\n.masonry { columns: 3 260px; column-gap: 16px; } .masonry > * { break-inside: avoid; margin-bottom: 16px; }\n```"
+ },
+ {
+  "id": "web_svg_animation",
+  "kind": "web",
+  "title": "Minh hoạ và hoạt ảnh bằng SVG",
+  "keys": [
+   "svg",
+   "minh hoa",
+   "hoat anh",
+   "animation svg",
+   "icon dong",
+   "loading",
+   "ve hinh",
+   "bieu tuong"
+  ],
+  "body": "- Biểu tượng nét mảnh: `<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\">` — đổi màu theo `color` của chữ.\n- Vẽ đường dần dần: `path { stroke-dasharray: 300; stroke-dashoffset: 300; animation: draw 1.2s ease forwards; } @keyframes draw { to { stroke-dashoffset: 0; } }`.\n- Vòng tải: `<circle cx=\"12\" cy=\"12\" r=\"9\" stroke-dasharray=\"40 20\">` + `animation: spin 1s linear infinite` với `transform-origin: center`.\n- Hình minh hoạ đơn giản (sóng, khối, blob) bằng `path` thay cho ảnh nặng."
+ },
+ {
+  "id": "web_indexeddb",
+  "kind": "web",
+  "title": "Lưu nhiều dữ liệu trong trình duyệt: IndexedDB",
+  "keys": [
+   "indexeddb",
+   "luu du lieu lon",
+   "offline",
+   "co so du lieu trinh duyet",
+   "localstorage day",
+   "luu anh"
+  ],
+  "body": "```js\nfunction openDB() { return new Promise((res, rej) => { const r = indexedDB.open(\"app\", 1);\n  r.onupgradeneeded = () => r.result.createObjectStore(\"notes\", { keyPath: \"id\", autoIncrement: true });\n  r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }\nasync function addNote(text) { const db = await openDB();\n  return new Promise((res, rej) => { const tx = db.transaction(\"notes\", \"readwrite\"); tx.objectStore(\"notes\").add({ text, at: Date.now() });\n    tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); }\n```\nlocalStorage chỉ ~5 MB và chỉ lưu chuỗi; IndexedDB lưu được object, ảnh (Blob) và hàng nghìn bản ghi."
+ },
+ {
+  "id": "web_timer_clock",
+  "kind": "web",
+  "title": "Đồng hồ, đếm ngược, bấm giờ (Pomodoro)",
+  "keys": [
+   "dong ho",
+   "dem nguoc",
+   "countdown",
+   "bam gio",
+   "pomodoro",
+   "timer",
+   "hen gio",
+   "thoi gian"
+  ],
+  "body": "```js\nlet end = Date.now() + 25 * 60 * 1000, timer = null;\nfunction tick() { const left = Math.max(0, end - Date.now());\n  const m = String(Math.floor(left / 60000)).padStart(2, \"0\"), s = String(Math.floor(left / 1000) % 60).padStart(2, \"0\");\n  display.textContent = `${m}:${s}`; document.title = `${m}:${s} – Tập trung`;\n  if (!left) { clearInterval(timer); timer = null; new Audio(\"data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=\").play().catch(() => {}); } }\nfunction start() { if (!timer) timer = setInterval(tick, 250); tick(); }\n```\nTính thời gian còn lại từ mốc `end` (không đếm số lần `setInterval` chạy) để không bị trôi khi tab ngủ."
+ },
+ {
+  "id": "web_media_player",
+  "kind": "web",
+  "title": "Trình phát nhạc / video tuỳ biến",
+  "keys": [
+   "nghe nhac",
+   "music player",
+   "audio",
+   "video",
+   "phat nhac",
+   "playlist",
+   "trinh phat"
+  ],
+  "body": "```js\nconst audio = new Audio(); let i = 0;\nconst playlist = [{ title: \"Bài 1\", src: \"song1.mp3\" }, { title: \"Bài 2\", src: \"song2.mp3\" }];\nfunction load(k) { i = (k + playlist.length) % playlist.length; audio.src = playlist[i].src; title.textContent = playlist[i].title; }\nplayBtn.onclick = () => (audio.paused ? audio.play() : audio.pause());\naudio.ontimeupdate = () => (seek.value = (audio.currentTime / audio.duration) * 100 || 0);\nseek.oninput = () => (audio.currentTime = (seek.value / 100) * audio.duration);\naudio.onended = () => { load(i + 1); audio.play(); };\n```\nTrình duyệt chặn tự phát khi chưa có thao tác của người dùng; chỉ gọi `play()` sau khi bấm."
+ },
+ {
+  "id": "web_gallery_lightbox",
+  "kind": "web",
+  "title": "Thư viện ảnh với lightbox",
+  "keys": [
+   "thu vien anh",
+   "gallery",
+   "lightbox",
+   "xem anh",
+   "phong to anh",
+   "album",
+   "anh"
+  ],
+  "body": "- Lưới ảnh: `grid-template-columns: repeat(auto-fill, minmax(200px, 1fr))`, ảnh `aspect-ratio: 4 / 3; object-fit: cover; loading=\"lazy\"`.\n- Lightbox bằng `<dialog>`: bấm ảnh → đặt `src` ảnh lớn vào dialog → `showModal()`; phím ← → để chuyển, Esc để đóng.\n- Ảnh minh hoạ không cần tải về: dùng `https://picsum.photos/seed/<từ-khoá>/800/600` (ghi rõ là ảnh minh hoạ)."
+ },
+ {
+  "id": "web_markdown_blog",
+  "kind": "web",
+  "title": "Blog / trang tài liệu từ Markdown",
+  "keys": [
+   "blog",
+   "markdown",
+   "bai viet",
+   "tai lieu",
+   "docs",
+   "ghi chu markdown",
+   "trang ca nhan"
+  ],
+  "body": "```html\n<script src=\"https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js\"></script>\n<script src=\"https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js\"></script>\n<article id=\"post\"></article>\n<script>\nconst md = \"# Tiêu đề\\n\\nĐoạn văn với **chữ đậm** và `code`.\";\ndocument.getElementById(\"post\").innerHTML = DOMPurify.sanitize(marked.parse(md));\n</script>\n```\n- Luôn làm sạch HTML sinh từ Markdown (DOMPurify) trước khi chèn vào trang.\n- Mục lục tự động: lấy các `h2/h3` trong bài, tạo `id` từ tiêu đề, dựng danh sách liên kết bên cạnh; đánh dấu mục đang đọc bằng `IntersectionObserver`."
  }
 ]

@@ -7,14 +7,15 @@
 - **Dùng ngay, không phải tải gì:** nhóm model miễn phí, không cần tài khoản. Chế độ *Tự động* gửi mỗi yêu cầu tới model mạnh nhất còn lượt, hoặc chọn đích danh trong menu model:
   - **MiniMax M2.7** (qua [LLM7.io](https://llm7.io)), mạnh nhất trong nhóm miễn phí;
   - **GPT-OSS 20B** của OpenAI (qua [Pollinations.ai](https://pollinations.ai) và LLM7), model suy luận;
-  - **Nemotron 3 Nano 30B** (NVIDIA), **Codestral** và **Mistral Nemo** (Mistral).
-- **Model hàng đầu qua [Puter](https://puter.com)** (đăng nhập tài khoản Puter miễn phí, dùng theo hạn mức hằng tháng của chính bạn, trang web không tốn phí): Claude Sonnet 5.5, GPT-5.6 Terra, **Qwen3.8 Max**, DeepSeek V4 Pro, Gemini 3.8 Flash, Kimi K2.7 Code, GLM-5.3, MiniMax M3. Các bước phụ dùng Qwen3.8 Flash cho tiết kiệm hạn mức. Puter lỗi thì tự quay về nhóm miễn phí.
+  - **Nemotron 3 Nano 30B** (NVIDIA), **Codestral** và **Mistral Nemo** (Mistral);
+  - **ch.at** (model nhỏ của OpenAI): trả lời trong vài giây, gần như không giới hạn lượt. Dùng cho các bước phụ (đọc đề, phân tích, sinh test) để dành lượt của model mạnh cho bước viết lời giải, và là lựa chọn đầu tiên ở mức *Nhanh*.
+- **Model hàng đầu qua [Puter](https://puter.com)** (đăng nhập tài khoản Puter miễn phí, dùng theo hạn mức hằng tháng của chính bạn, trang web không tốn phí): Claude Opus 5.5, GPT-5.6 Sol, Claude Sonnet 5.5, GPT-5.6 Terra, **Qwen3.8 Max**, DeepSeek V4 Pro, Gemini 4 Argon, Grok 4.7, Gemini 3.8 Flash, Kimi K2.7 Code, GLM-5.3, MiniMax M3. Các bước phụ dùng Qwen3.8 Flash cho tiết kiệm hạn mức. Puter lỗi thì tự quay về nhóm miễn phí.
 - **Phối hợp nhiều model:** khi một model sửa mãi không đúng, bước "nghĩ lại từ đầu" giao cho **một model khác** để có góc nhìn mới.
 - **Giới hạn của các gói miễn phí** (đo thực tế): Pollinations trả lời 1 lần mỗi 30 giây và ~1.400 token mỗi lần; LLM7 có hạn mức token mỗi ngày cho từng model (MiniMax hết sau khoảng 2 câu trả lời dài). CodeMaster tự xếp hàng, tự đổi model khi một model hết lượt (menu model hiện trạng thái "sẵn sàng / chờ / hết lượt đến…"), và tự **viết tiếp nhiều lượt** khi câu trả lời bị cắt. Có khoá riêng (Pollinations, LLM7) thì nhập trong *Cài đặt* để bỏ giới hạn.
 - **Không giới hạn, chạy cả khi mất mạng:** chọn model *trong trình duyệt* (Qwen3.5 2B/4B/9B, Qwen2.5 Coder 7B) chạy bằng GPU của máy bạn qua [WebLLM](https://github.com/mlc-ai/web-llm); lần đầu tải 2–6 GB. Chỉ dùng khi chính bạn chọn, hoặc khi mọi máy chủ miễn phí đều không phản hồi.
 - **Chấm code ngay trong trình duyệt:** C/C++ biên dịch bằng [Clang WebAssembly](https://github.com/YoWASP/clang), Python chạy bằng [Pyodide](https://pyodide.org); được tải sẵn ngầm khi mở trang.
 - **Ghi nhớ bài đã giải:** mỗi bài AI giải đúng và đã kiểm chứng được lưu (ý tưởng chính) trong trình duyệt của bạn; gặp bài tương tự, AI được nhắc lại kinh nghiệm đó.
-- Giao diện sáng/tối, hiển thị công thức toán (KaTeX), tìm kiếm cuộc trò chuyện; cài được như ứng dụng (PWA), có ảnh xem trước khi chia sẻ link.
+- Giao diện sáng/tối, thanh chọn chế độ và mức suy nghĩ, công thức toán (KaTeX), nút sao chép/hỏi lại/tải code, danh sách trò chuyện theo ngày và tìm kiếm, phím tắt (Ctrl/Cmd+K: trò chuyện mới, /: gõ); cài được như ứng dụng (PWA), có ảnh xem trước khi chia sẻ link.
 
 > Về "huấn luyện model": huấn luyện hay tinh chỉnh một model ngôn ngữ cần cụm GPU chạy nhiều ngày, chi phí từ hàng nghìn đô trở lên, không làm được trong dự án này. CodeMaster dùng các model mã nguồn mở đã được huấn luyện sẵn ở mức cao nhất hiện có miễn phí, và tăng độ chính xác bằng quy trình: phân tích, tra kiến thức, chấm, stress test, kiểm tra tốc độ, tự sửa, ghi nhớ.
 
@@ -23,7 +24,7 @@
 **Giải bài tin** (VOI, IOI, Google Code Jam / Kick Start, Codeforces…)
 1. Đọc đề và lấy các test ví dụ (bỏ test nào không có trong đề, để tránh test bịa).
 2. **Phân tích đề**: định dạng (stdin, file `.INP/.OUT`, `Case #x:` của Code Jam, tương tác, cài hàm cho grader IOI), giới hạn thời gian, độ phức tạp mục tiêu suy ra từ giới hạn n, quan sát chính, trường hợp biên.
-3. **Tra thư viện kiến thức** (79 chủ đề: DP và các tối ưu DP, slope trick, CDQ, đồ thị, luồng, cây Kruskal, liên thông động, cấu trúc dữ liệu kể cả persistent/treap/Li Chao, xâu kể cả suffix automaton và cây palindrome, toán (Gauss, cơ sở XOR, Möbius, Miller–Rabin), tổ hợp, hình học, chiến thuật IOI/Code Jam, và 13 chủ đề làm web) cùng **các bài tương tự đã giải trước đây**, rồi đưa vào prompt.
+3. **Tra thư viện kiến thức** (142 bài học: DP và các tối ưu DP, slope trick, CDQ, đồ thị, luồng, cây Kruskal, liên thông động, cấu trúc dữ liệu kể cả persistent/treap/Li Chao, xâu kể cả suffix automaton và cây palindrome, toán (Gauss, cơ sở XOR, Möbius, Miller–Rabin), tổ hợp, hình học, chiến thuật IOI/Code Jam, code mẫu đã kiểm chứng cho số lớn, NTT, Dinic, cặp ghép, SCC, bao lồi, mảng hậu tố, Manacher…, mẹo C++/Python/JavaScript, SQL, Git, code sạch, kiểm thử, gỡ lỗi, cùng 39 bài làm web) và **các bài tương tự đã giải trước đây**, rồi đưa vào prompt.
 4. Model giải theo **quy trình tư duy cố định**: chốt độ phức tạp, thử tay, cân nhắc ít nhất hai hướng, tìm phản ví dụ cho tham lam, liệt kê trường hợp biên, trace code trên test mẫu.
 5. Biên dịch và chấm trên test mẫu (AC / WA / TLE / RE / CE).
 6. **Stress test** (mức Tối đa): AI viết lời giải trâu và bộ sinh test nhỏ, rồi so sánh 150 test ngẫu nhiên, bắt được lỗi mà test mẫu bỏ sót.
@@ -38,9 +39,9 @@
 
 Tab **Thư viện** trong giao diện cho xem và tìm toàn bộ kiến thức này.
 
-**Làm web**: AI viết một trang HTML hoàn chỉnh theo hệ thống thiết kế (màu, chữ, khoảng cách, responsive, truy cập được), chạy thử trang trong khung ẩn để bắt lỗi JavaScript và tự sửa, rồi hiện bản xem trước bên phải.
+**Làm web**: AI lên kế hoạch (mục đích, các phần, bố cục điện thoại/máy tính, màu, tương tác), viết một trang HTML hoàn chỉnh theo hệ thống thiết kế, chạy thử trong khung ẩn để bắt lỗi JavaScript và tự sửa; ở mức Tối đa còn **tự đánh giá lại** theo yêu cầu (tính năng thiếu, giao diện điện thoại, nội dung) và cải tiến, nếu bản cải tiến lỗi thì giữ bản cũ.
 
-**Hỏi đáp**: giải thích thuật toán, debug, trả lời câu hỏi lập trình.
+**Hỏi đáp**: quy trình suy nghĩ riêng — với lỗi code thì tái hiện trên input cụ thể, tìm đúng dòng và nguyên nhân gốc; với thuật toán thì trực giác bằng ví dụ nhỏ, ý tưởng chính xác, chứng minh, độ phức tạp, bẫy thường gặp, gợi ý bài luyện tập. Chương trình hoàn chỉnh trong câu trả lời được **tự biên dịch thử**; lỗi biên dịch thì AI tự sửa.
 
 ## Chạy bằng Ollama (tuỳ chọn)
 

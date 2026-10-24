@@ -324,7 +324,12 @@ def _write_stress_helpers(client, model, statement, lang, source, tool_id):
     brute = yield from ask(request, MAX_TOKENS["brute"])
     if not brute:
         return None
-    return {"generator": gen[1], "brute_language": brute[0], "brute": brute[1]}
+    request = [{"role": "system", "content": "Write one Python program. " + PROMPTS["stress_big"]
+                + " Output exactly one ```python code block and nothing else."},
+               {"role": "user", "content": f"Problem:\n{statement}"}]
+    big = yield from ask(request, MAX_TOKENS["generator"])
+    return {"generator": gen[1], "brute_language": brute[0], "brute": brute[1],
+            "big": big[1] if big and big[0] == "python" and _generator_ok(big[1]) else None}
 
 
 def _judge(lang, source, tests, time_limit, run_id):
@@ -342,6 +347,9 @@ def _stress(client, model, state, lang, source, time_limit, run_id):
     helpers = state.get("stress")
     if not helpers:
         helpers = yield from _write_stress_helpers(client, model, state.get("statement", ""), lang, source, run_id)
+        # Kept apart so the speed check still runs if the small-test generator turns out broken.
+        if helpers and helpers.get("big"):
+            state["big"] = helpers["big"]
         if not helpers:
             yield {"type": "tool_result", "id": run_id, "name": "stress_test",
                    "output": {"error": "AI không viết được generator/brute force hợp lệ, bỏ qua stress test."}}
@@ -363,11 +371,72 @@ def _stress(client, model, state, lang, source, time_limit, run_id):
     return result
 
 
+def _perf(state, lang, source, time_limit, run_id):
+    yield {"type": "tool_start", "id": run_id, "name": "perf_test"}
+    result = sandbox.perf_test(state["big"], {"language": lang, "code": source}, time_limit)
+    yield {"type": "tool_result", "id": run_id, "name": "perf_test", "output": {**result, "time_limit": time_limit}}
+    return result
+
+
+def _perf_feedback(result: dict, analysis: dict) -> str:
+    if result["result"] == "CE":
+        return f"Code bị lỗi biên dịch:\n```\n{result['compile_error']}\n```\nHãy sửa lỗi và viết lại TOÀN BỘ code."
+    lines = [f"Trên test lớn nhất (kích thước tối đa theo đề, {result['size'] // 1024} KB input), code của bạn bị {result['result']}."]
+    if result["result"] == "TLE":
+        target = analysis.get("target_complexity")
+        lines.append("Thuật toán hoặc cài đặt chưa đủ nhanh" + (f" (mục tiêu {target})" if target else "")
+                     + ". Kiểm tra vòng lặp lồng nhau ẩn, cấu trúc dữ liệu chậm, đọc ghi chậm; nếu cần, đổi thuật toán.")
+    elif result.get("stderr"):
+        lines.append(f"Stderr:\n```\n{result['stderr']}\n```")
+    lines.append("Hãy tìm nguyên nhân, giải thích ngắn gọn, rồi viết lại TOÀN BỘ code.")
+    return "\n".join(lines)
+
+
+# ---------- memory: what the agent learned from problems it solved and verified ----------
+
+LESSONS_FILE = Path(__file__).resolve().parent / "data" / "lessons.json"
+MAX_LESSONS = 200
+
+
+def _words(text: str) -> set[str]:
+    return {w for w in re.split(r"[^a-z0-9]+", knowledge.normalize(text)) if len(w) >= 3}
+
+
+def load_lessons() -> list[dict]:
+    try:
+        return json.loads(LESSONS_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def remember(lesson: dict):
+    lessons = (load_lessons() + [lesson])[-MAX_LESSONS:]
+    LESSONS_FILE.parent.mkdir(exist_ok=True)
+    LESSONS_FILE.write_text(json.dumps(lessons, ensure_ascii=False), encoding="utf-8")
+
+
+def similar_lessons(text: str, k: int = 2) -> list[dict]:
+    """Past lessons sharing many words with `text` (same rule as the in-browser agent)."""
+    mine, scored = _words(text), []
+    for lesson in load_lessons():
+        theirs = _words(lesson["text"])
+        score = len(mine & theirs) / max(1, min(len(mine), len(theirs)))
+        if score >= 0.35:
+            scored.append((score, lesson))
+    scored.sort(key=lambda s: -s[0])
+    return [lesson for _, lesson in scored[:k]]
+
+
+def _idea_of(reply: str) -> str:
+    at = reply.find("```")
+    return (reply[:at] if at >= 0 else reply).strip()[:900]
+
+
 def _solve_problem(client, messages, state, model, think, effort):
     cfg = EFFORTS[effort]
     text = messages[-1]["content"]
     if len(text) > NEW_PROBLEM_CHARS:
-        state.update({"statement": text, "analysis": {}, "kb": [], "stress": None})
+        state.update({"statement": text, "analysis": {}, "kb": [], "stress": None, "big": None})
         yield {"type": "tool_start", "id": "extract", "name": "extract_tests"}
         tests = extract_tests(client, model, text)
         if tests:
@@ -381,15 +450,20 @@ def _solve_problem(client, messages, state, model, think, effort):
                    "output": state["analysis"] or {"error": "Không phân tích được đề, tiếp tục giải trực tiếp."}}
         entries = knowledge.retrieve(text, state["analysis"].get("topics"), k=cfg["kb"])
         state["kb"] = [e["id"] for e in entries]
-        if entries:
+        state["lessons"] = similar_lessons(f"{state['analysis'].get('summary', '')} {text}")
+        if entries or state["lessons"]:
             yield {"type": "tool_start", "id": "kb", "name": "knowledge"}
             yield {"type": "tool_result", "id": "kb", "name": "knowledge",
-                   "output": {"topics": [{"id": e["id"], "title": e["title"]} for e in entries]}}
+                   "output": {"topics": [{"id": e["id"], "title": e["title"]} for e in entries],
+                              "lessons": [lesson["summary"] for lesson in state["lessons"]]}}
 
     statement = state.get("statement", text)
     analysis = state.get("analysis") or {}
     entries = [knowledge.BY_ID[i] for i in state.get("kb", []) if i in knowledge.BY_ID]
     system = _cp_system(analysis, entries, knowledge.constraint_hint(statement))
+    if state.get("lessons"):
+        system += "\n\n" + PROMPTS["lessons"] + "\n\n" + "\n\n".join(
+            f"### {lesson['summary']}\n{lesson['idea']}" for lesson in state["lessons"])
     time_limit = _time_limit(analysis, statement)
     tests = state.get("tests", [])
     any_answer = analysis.get("unique_answer") is False and ANY_ANSWER_RE.search(statement)
@@ -425,9 +499,19 @@ def _solve_problem(client, messages, state, model, think, effort):
                 passed.append(f"{result['iterations_passed']} test ngẫu nhiên so với lời giải trâu")
             elif result:
                 feedback, verdict = _stress_feedback(result), result["result"]
+        if feedback is None and stress and state.get("big"):
+            result = yield from _perf(state, lang, source, time_limit, f"perf{round_no}")
+            if result["result"] == "OK":
+                passed.append(f"test lớn nhất trong {result['time']:.2f} giây")
+            elif result["result"] != "GENERATOR_FAILED":
+                feedback, verdict = _perf_feedback(result, analysis), f"{result['result']} trên test lớn"
         if feedback is None:
-            yield {"type": "notice", "text": "Code đã qua " + " và ".join(passed) + "."
+            yield {"type": "notice", "kind": "success", "text": "Code đã qua " + " và ".join(passed) + "."
                    if passed else "Không chạy được kiểm tra nào cho code này."}
+            if passed and len(text) > NEW_PROBLEM_CHARS:
+                remember({"summary": (analysis.get("summary") or statement.splitlines()[0])[:200],
+                          "text": f"{analysis.get('summary', '')} {statement}"[:1500],
+                          "topics": analysis.get("topics", []), "idea": _idea_of(reply)})
             return
         if fixes_left == 0:
             if rethinks_left == 0:
@@ -456,8 +540,8 @@ def run_turn(client: ollama.Client, conversation_id: str, messages: list, state:
 
     system = SYSTEM_PROMPTS[mode]
     if mode in ("chat", "web"):
-        entries = knowledge.retrieve(messages[-1]["content"], k=2, min_score=3 if mode == "chat" else 2,
-                                     kind="web" if mode == "web" else "cp")
+        entries = knowledge.retrieve(messages[-1]["content"], k=3 if mode == "web" else 2,
+                                     min_score=3 if mode == "chat" else 2, kind="web" if mode == "web" else "cp")
         if entries:
             system += "\n\n" + knowledge.as_prompt(entries)
             yield {"type": "tool_start", "id": "kb", "name": "knowledge"}
@@ -473,3 +557,16 @@ def run_turn(client: ollama.Client, conversation_id: str, messages: list, state:
         yield {"type": "tool_call", "id": "site", "name": "save_web_files", "input": {"files": [{"path": "index.html"}]}}
         yield {"type": "tool_result", "id": "site", "name": "save_web_files",
                "output": save_site(conversation_id, page[1])}
+        if effort != "max":
+            return
+        # Self-review against the request (missing features, phone layout, content), once.
+        messages.append({"role": "user", "content": PROMPTS["web_review"]})
+        yield {"type": "notice", "text": "AI đang tự đánh giá lại trang theo yêu cầu (tính năng, giao diện điện thoại, nội dung)."}
+        review = yield from stream_reply(client, model, system, messages, think)
+        messages.append({"role": "assistant", "content": review})
+        better = last_code_block(review, {"html": "html"})
+        if not better:
+            yield {"type": "notice", "kind": "success", "text": "AI đánh giá: trang đã đạt yêu cầu."}
+            return
+        yield {"type": "tool_start", "id": "review", "name": "save_web_files"}
+        yield {"type": "tool_result", "id": "review", "name": "save_web_files", "output": save_site(conversation_id, better[1])}

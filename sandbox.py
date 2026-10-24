@@ -234,3 +234,21 @@ def ensure_cpp_shim():
 
 ensure_cpp_shim()
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+
+
+def perf_test(generator_code: str, solution: dict, time_limit: float = 2.0) -> dict:
+    """Speed check on one maximum-size input made by a Python generator (seed in argv[1])."""
+    gen = Program("python", generator_code)
+    prog = Program(solution["language"], solution["code"])
+    try:
+        made = gen.run("", 20.0, ["1"])
+        if made["status"] != "OK" or not made["stdout"].strip():
+            return {"result": "GENERATOR_FAILED", "stderr": _truncate(made["stderr"] or "generator printed nothing")}
+        if not prog.compile():
+            return {"result": "CE", "compile_error": prog.compile_error}
+        r = prog.run(made["stdout"], time_limit)
+        return {"result": r["status"], "time": r["time"], "size": len(made["stdout"]),
+                "stderr": _truncate(r["stderr"], 1000), "input_head": _truncate(made["stdout"], 300)}
+    finally:
+        gen.cleanup()
+        prog.cleanup()

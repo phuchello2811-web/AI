@@ -7,10 +7,14 @@ const SCRIPT = "https://js.puter.com/v2/";
 export const HELPER_MODEL = "qwen3.8-flash";
 
 export const MODELS = [
+  { id: "claude-opus-5-5", label: "Claude Opus 5.5", note: "Mạnh nhất của Anthropic cho bài cực khó; rất tốn hạn mức" },
+  { id: "gpt-5.6-sol", label: "GPT-5.6 Sol", note: "Mạnh nhất của OpenAI; rất tốn hạn mức" },
   { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5", note: "Rất mạnh về lập trình; tốn hạn mức nhiều" },
   { id: "gpt-5.6-terra", label: "GPT-5.6 Terra", note: "OpenAI, suy luận mạnh" },
   { id: "qwen3.8-max", label: "Qwen3.8 Max", note: "Alibaba, mạnh nhất dòng Qwen" },
   { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro", note: "Suy luận toán và thuật toán, giá vừa" },
+  { id: "gemini-4-argon", label: "Gemini 4 Argon", note: "Mạnh nhất của Google; tốn hạn mức" },
+  { id: "grok-4.7", label: "Grok 4.7", note: "xAI, suy luận mạnh" },
   { id: "gemini-3.8-flash", label: "Gemini 3.8 Flash", note: "Google, nhanh, ngữ cảnh rất dài" },
   { id: "kimi-k2.7-code", label: "Kimi K2.7 Code", note: "Moonshot, chuyên viết code" },
   { id: "glm-5.3", label: "GLM-5.3", note: "Zhipu, mạnh về code và web" },

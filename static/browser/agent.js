@@ -297,8 +297,10 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite, checkSit
   let ctx = {};             // per turn: model, strong, effort, think, signal
   let lastLooped = false;   // whether the latest streamReply was cut off for repeating itself
 
-  const chatOpts = (extra) => ({ model: ctx.model, effort: REASONING[ctx.effort] || "medium", think: ctx.think,
-    avoid: ctx.avoid, signal: ctx.signal, ...extra });
+  // In-browser models think step by step at the "deep" and "max" levels (hosted models always reason).
+  const chatOpts = (extra) => ({ model: ctx.model, effort: REASONING[ctx.effort] || "medium",
+    think: ctx.think || ctx.effort !== "fast", avoid: ctx.avoid, signal: ctx.signal,
+    route: ctx.effort === "fast" ? "fast" : "main", ...extra });
 
   async function* streamReply(system, messages) {
     const budget = ctx.strong ? STRONG_HISTORY_CHARS : HISTORY_CHARS;
@@ -609,13 +611,26 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite, checkSit
     }
   }
 
-  /** Build a page, run it in a hidden frame, and let the model fix runtime errors. */
+  /**
+   * Build a page, run it in a hidden frame, and let the model fix runtime errors. At the "max" level the model
+   * then reviews the working page against the request (missing features, mobile layout, content) once.
+   */
   async function* buildSite(conv, system) {
+    let reviewed = ctx.effort !== "max", rewrites = 1;
     for (let round = 0; ; round++) {
       const reply = yield* streamReply(system, conv.messages);
       conv.messages.push({ role: "assistant", content: reply });
       const page = lastCodeBlock(reply, { html: "html" });
-      if (!page) return;
+      if (!page) {
+        // A page that was started but never finished (cut off) is asked for again, once, more compactly.
+        if (!/```html/i.test(reply) || !rewrites--) {
+          if (/```html/i.test(reply)) yield { type: "error", message: "AI chưa viết xong trang (câu trả lời bị cắt). Hãy bấm Hỏi lại hoặc yêu cầu trang gọn hơn." };
+          return;
+        }
+        conv.messages.push({ role: "user", content: "Trang HTML vừa rồi bị cắt giữa chừng. Hãy viết lại TOÀN BỘ file HTML gọn hơn (khoảng 250 dòng), đầy đủ từ <!doctype html> đến </html>, trong một code block." });
+        yield { type: "notice", text: "Trang bị cắt giữa chừng, AI đang viết lại gọn hơn." };
+        continue;
+      }
       const id = `site${round}`;
       yield { type: "tool_start", id, name: "save_web_files" };
       yield { type: "tool_call", id, name: "save_web_files", input: { files: [{ path: "index.html" }] } };
@@ -623,9 +638,34 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite, checkSit
       const errors = checkSite ? await checkSite(page[1]) : [];
       yield { type: "tool_result", id, name: "save_web_files",
         output: { saved: ["index.html"], all_files: ["index.html"], preview_url: url, errors } };
-      if (!errors.length || round >= WEB_FIX_ROUNDS) return;
-      conv.messages.push({ role: "user", content: prompts.web_errors.replace("{errors}", errors.map((e) => `- ${e}`).join("\n")) });
-      yield { type: "notice", text: `Trang có ${errors.length} lỗi khi chạy, AI đang tự sửa (lần ${round + 1}).` };
+      if (errors.length && round < WEB_FIX_ROUNDS) {
+        conv.messages.push({ role: "user", content: prompts.web_errors.replace("{errors}", errors.map((e) => `- ${e}`).join("\n")) });
+        yield { type: "notice", text: `Trang có ${errors.length} lỗi khi chạy, AI đang tự sửa (lần ${round + 1}).` };
+        continue;
+      }
+      if (reviewed || errors.length) return;
+      reviewed = true;
+      conv.messages.push({ role: "user", content: prompts.web_review });
+      yield { type: "notice", text: "Trang chạy tốt. AI đang tự đánh giá lại theo yêu cầu (tính năng, giao diện điện thoại, nội dung)." };
+      const review = yield* streamReply(system, conv.messages);
+      conv.messages.push({ role: "assistant", content: review });
+      const better = lastCodeBlock(review, { html: "html" });
+      if (!better) {
+        yield { type: "notice", kind: "success", text: "AI đánh giá: trang đã đạt yêu cầu." };
+        return;
+      }
+      const rid = `review${round}`;
+      yield { type: "tool_start", id: rid, name: "save_web_files" };
+      const rurl = saveSite(conv, better[1]);
+      const rerrors = checkSite ? await checkSite(better[1]) : [];
+      yield { type: "tool_result", id: rid, name: "save_web_files",
+        output: { saved: ["index.html"], all_files: ["index.html"], preview_url: rurl, errors: rerrors } };
+      if (rerrors.length) {
+        // The improved version broke something: go back to the last working page.
+        saveSite(conv, page[1]);
+        yield { type: "notice", text: "Bản cải tiến bị lỗi khi chạy nên giữ lại bản trước (đang chạy tốt)." };
+      }
+      return;
     }
   }
 
@@ -637,8 +677,8 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite, checkSit
       return;
     }
     let system = prompts.system[mode];
-    const entries = knowledge.retrieve(conv.messages[conv.messages.length - 1].content, [], 2, mode === "web" ? 2 : 3,
-      mode === "web" ? "web" : "cp");
+    const entries = knowledge.retrieve(conv.messages[conv.messages.length - 1].content, [], mode === "web" ? 3 : 2,
+      mode === "web" ? 2 : 3, mode === "web" ? "web" : "cp");
     if (entries.length) {
       system += "\n\n" + knowledgePrompt(entries);
       yield { type: "tool_start", id: "kb", name: "knowledge" };
@@ -648,8 +688,24 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite, checkSit
       yield* buildSite(conv, system);
       return;
     }
-    const reply = yield* streamReply(system, conv.messages);
+    let reply = yield* streamReply(system, conv.messages);
     conv.messages.push({ role: "assistant", content: reply });
+    // A complete program in an explanation must at least compile: check it once and let the model fix it.
+    for (let round = 0; round < 2 && judge.runTests && ctx.effort !== "fast"; round++) {
+      const code = lastCodeBlock(reply, CODE_LANGS);
+      if (!code || !/\bmain\s*\(|^\s*(import|def|print|for|if|n\s*=)/m.test(code[1])) return;
+      const id = `check${round}`;
+      yield { type: "tool_start", id, name: "compile_check" };
+      const result = yield* withStatus(id, (onStatus) => judge.runTests(code[0], code[1], [{ input: "" }], 2, onStatus));
+      const syntax = code[0] === "python" && (result.tests[0] || {}).stderr && /SyntaxError|IndentationError/.test(result.tests[0].stderr);
+      const error = result.verdict === "CE" ? result.compile_error : syntax ? result.tests[0].stderr : "";
+      yield { type: "tool_result", id, name: "compile_check", output: { ok: !error, language: code[0], error } };
+      if (!error || round === 1) return;
+      conv.messages.push({ role: "user", content: `Code trong câu trả lời bị lỗi khi biên dịch/chạy:\n\`\`\`\n${error}\n\`\`\`\nHãy sửa và viết lại câu trả lời với code đúng.` });
+      yield { type: "notice", text: "Code trong câu trả lời bị lỗi biên dịch, AI đang tự sửa." };
+      reply = yield* streamReply(system, conv.messages);
+      conv.messages.push({ role: "assistant", content: reply });
+    }
   }
 
   return { runTurn };

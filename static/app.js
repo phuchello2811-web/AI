@@ -77,6 +77,8 @@ async function refreshStatus() {
     els.model.value = h.models.some((m) => m.name === saved) ? saved : (h.models[0] || {}).name || "";
     updateThinkToggle();
     renderModelButton();
+    $("#statModels").textContent = h.models.length;
+    api("/api/knowledge").then((k) => ($("#statLessons").textContent = k.length)).catch(() => {});
     if (h.browser) return showBrowserStatus(h);
     $("#status").innerHTML = !h.ollama
       ? `<span class="dot" style="background:var(--bad)"></span>Ollama chưa chạy — gõ <code>brew services start ollama</code>`
@@ -122,7 +124,15 @@ async function refreshConversations() {
   const convs = await api("/api/conversations");
   const q = ($("#convSearch").value || "").trim().toLowerCase();
   els.convList.innerHTML = "";
+  let group = "";
+  const day = 86_400_000, startOfToday = new Date().setHours(0, 0, 0, 0);
   for (const c of convs.filter((c) => !q || c.title.toLowerCase().includes(q))) {
+    const t = c.updated < 1e12 ? c.updated * 1000 : c.updated; // server.py stores seconds, the browser milliseconds
+    const label = t >= startOfToday ? "Hôm nay" : t >= startOfToday - 6 * day ? "7 ngày qua" : "Cũ hơn";
+    if (label !== group) {
+      group = label;
+      els.convList.insertAdjacentHTML("beforeend", `<div class="conv-label">${label}</div>`);
+    }
     const row = document.createElement("div");
     row.className = "conv" + (c.id === state.convId ? " active" : "");
     row.innerHTML = `<span>${esc(c.title)}</span><button class="icon-btn del" title="Xoá">${icon("trash")}</button>`;
@@ -196,6 +206,18 @@ function enhanceCode(root) {
       setTimeout(() => (copy.innerHTML = `${icon("copy")}Sao chép`), 1500);
     };
     head.appendChild(copy);
+    const save = document.createElement("button");
+    save.innerHTML = `${icon("download")}Tải về`;
+    save.onclick = () => {
+      const names = { cpp: "main.cpp", "c++": "main.cpp", c: "main.c", python: "main.py", py: "main.py", html: "index.html",
+                      css: "style.css", js: "script.js", javascript: "script.js", json: "data.json" };
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([code.textContent], { type: "text/plain;charset=utf-8" }));
+      a.download = names[lang] || "code.txt";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    };
+    head.appendChild(save);
     if (JUDGE_LANGS[lang]) {
       const open = document.createElement("button");
       open.innerHTML = `${icon("play")}Chạy trong trình chấm`;
@@ -291,6 +313,7 @@ class Turn {
       case "text":
         if (!this.seg || this.seg.kind !== "text") { this.closeSeg(); this.newText(); }
         this.seg.text += ev.text;
+        this.answer = (this.answer || "") + ev.text;
         live ? this.scheduleRender() : null;
         break;
       case "tool_start":
@@ -338,13 +361,31 @@ class Turn {
         `<div class="usage-line">${this.tokens.models ? `${esc([...this.tokens.models].join(", "))} · ` : ""}`
         + `${this.tokens.output.toLocaleString()} token viết ra · ${this.tokens.speed} token/giây</div>`);
     }
+    if (this.answer && !$(".msg-actions", this.body)) {
+      const bar = document.createElement("div");
+      bar.className = "msg-actions";
+      bar.innerHTML = `<button type="button" data-act="copy">${icon("copy")}Sao chép</button>`
+        + (this.userText ? `<button type="button" data-act="retry">${icon("refresh")}Hỏi lại</button>` : "");
+      bar.onclick = (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        if (b.dataset.act === "copy") {
+          navigator.clipboard.writeText(this.answer);
+          b.innerHTML = `${icon("check")}Đã chép`;
+          setTimeout(() => (b.innerHTML = `${icon("copy")}Sao chép`), 1500);
+        } else if (!state.controller) {
+          send(this.userText);
+        }
+      };
+      this.body.appendChild(bar);
+    }
   }
 
   toolCard(id, name) {
     const titles = {
       run_code: ["cpu", "Chạy thử code"], stress_test: ["dice", "Stress test"], save_web_files: ["layout", "Lưu và chạy thử website"],
       extract_tests: ["list", "Lấy test mẫu từ đề"], analyze_problem: ["compass", "Phân tích đề"], knowledge: ["book", "Tra thư viện kiến thức"],
-      perf_test: ["zap", "Kiểm tra tốc độ trên test lớn nhất"],
+      perf_test: ["zap", "Kiểm tra tốc độ trên test lớn nhất"], compile_check: ["check", "Kiểm tra code biên dịch được"],
     };
     const busy = { extract_tests: "đang đọc đề…", analyze_problem: "đang phân tích…", knowledge: "đang tra…",
                    stress_test: "đang viết lời giải trâu và sinh test…", save_web_files: "đang chạy thử trang…" };
@@ -425,6 +466,10 @@ class Turn {
       sum.textContent = out.result === "ALL_PASSED" ? `${out.iterations_passed} test ngẫu nhiên đều khớp` : `lệch ở seed ${out.seed ?? "?"}`;
       body.insertAdjacentHTML("beforeend", `<pre>${esc(JSON.stringify(out, null, 2))}</pre>`);
       if (out.result !== "ALL_PASSED") t.el.classList.add("open");
+    } else if (ev.name === "compile_check") {
+      setBadge(out.ok ? "OK" : "CE", out.ok ? "Biên dịch được" : "Lỗi");
+      sum.textContent = `${LANG_NAMES[out.language] || out.language}` + (out.ok ? "" : " · đang nhờ AI sửa");
+      if (out.error) body.innerHTML = `<pre>${esc(out.error)}</pre>`;
     } else if (ev.name === "perf_test") {
       setBadge(out.result === "OK" ? "OK" : out.result, out.result === "OK" ? `${out.time}s` : out.result);
       sum.textContent = out.result === "GENERATOR_FAILED" ? "AI viết bộ sinh test lớn bị lỗi, bỏ qua"
@@ -487,6 +532,7 @@ async function openConversation(id) {
       if (turn) turn.finish();
       addUserMessage(ev.text, ev.images);
       turn = new Turn();
+      turn.userText = ev.text;
     } else if (turn) {
       turn.handle(ev, false);
       if (ev.type === "done") turn = null;
@@ -527,6 +573,7 @@ async function send(text) {
   renderAttachments();
 
   const turn = new Turn();
+  turn.userText = text;
   state.controller = new AbortController();
   setBusy(true);
   const body = { conversation_id: state.convId, text, images, mode: els.mode.value, model: els.model.value,
@@ -757,6 +804,7 @@ function openTopic(id) {
   ask.onclick = () => {
     els.mode.value = "chat";
     savePref("mode", "chat");
+    syncSegs();
     els.input.value = `Giải thích kỹ chủ đề "${e.title}": trực giác, chứng minh ngắn, code C++ mẫu, và 3 bài luyện tập tiêu biểu (VOI/IOI/Codeforces/Code Jam) theo độ khó tăng dần.`;
     autosize();
     els.input.focus();
@@ -793,6 +841,7 @@ document.querySelectorAll(".starter").forEach((b) => (b.onclick = () => {
   els.mode.value = b.dataset.mode;
   savePref("mode", els.mode.value);
   if (b.dataset.effort) { els.effort.value = b.dataset.effort; savePref("effort", els.effort.value); }
+  syncSegs();
   autosize();
   els.input.focus();
 }));
@@ -926,4 +975,46 @@ els.think.onchange = () => savePref("think", els.think.checked ? "1" : "0");
 
 renderTests();
 $("#apiBase").textContent = API || location.origin;
+/* ================= Segmented controls, shortcuts, scrolling ================= */
+
+const PLACEHOLDERS = {
+  cp: "Dán đề bài (kèm ví dụ input/output)… Enter để gửi, Shift+Enter xuống dòng",
+  web: "Mô tả trang web hoặc ứng dụng bạn muốn làm…",
+  chat: "Hỏi bất cứ điều gì về lập trình, thuật toán, lỗi code…",
+};
+
+function syncSegs() {
+  for (const [seg, select] of [["#modeSeg", els.mode], ["#effortSeg", els.effort]]) {
+    document.querySelectorAll(`${seg} button`).forEach((b) => {
+      const on = b.dataset.value === select.value;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-checked", on);
+    });
+  }
+  els.input.placeholder = PLACEHOLDERS[els.mode.value] || PLACEHOLDERS.cp;
+}
+
+for (const [seg, select] of [["#modeSeg", els.mode], ["#effortSeg", els.effort]]) {
+  $(seg).addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    select.value = b.dataset.value;
+    select.onchange();
+    syncSegs();
+  });
+}
+syncSegs();
+
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); newChat(); }
+  else if (e.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)
+           && !document.activeElement.isContentEditable && !document.activeElement.closest(".CodeMirror")) {
+    e.preventDefault();
+    els.input.focus();
+  }
+});
+
+els.messages.addEventListener("scroll", () => $("#scrollDown").classList.toggle("hidden", nearBottom()));
+$("#scrollDown").onclick = () => scrollDown(true);
+
 connect();

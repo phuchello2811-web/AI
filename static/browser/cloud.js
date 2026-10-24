@@ -6,8 +6,10 @@
 // Measured limits of the anonymous tiers (October 2026):
 // - Pollinations (GPT-OSS 20B): 1 reply per 30 s per IP, ~1,400 tokens per reply (reasoning included).
 // - LLM7 (MiniMax M2.7, GPT-OSS 20B, Codestral): a small daily token quota per IP, 3,072 tokens per reply.
+// - ch.at (a small OpenAI model): fast, no visible rate limit, ~1,800 characters per reply (continued as needed).
 
 const POLLINATIONS = "https://text.pollinations.ai/openai";
+const CHAT_AT = "https://ch.at/v1/chat/completions";
 const LLM7 = "https://api.llm7.io/v1/chat/completions";
 
 const PROVIDERS = {
@@ -16,6 +18,7 @@ const PROVIDERS = {
                schema: true, effort: true, extra: { private: true } },
   "gpt-oss-llm7": { label: "GPT-OSS 20B", url: LLM7, model: "gpt-oss:20b", keyPref: "llm7Key", effort: true },
   nemotron: { label: "Nemotron 3 Nano 30B", url: LLM7, model: "nemotron-3-nano:30b", keyPref: "llm7Key" },
+  "chat-at": { label: "ch.at", url: CHAT_AT, model: "gpt-4o-mini", keyPref: "" },
   codestral: { label: "Codestral", url: LLM7, model: "codestral-latest", keyPref: "llm7Key" },
   "mistral-nemo": { label: "Mistral Nemo", url: LLM7, model: "mistral-Nemo-Instruct-2407", keyPref: "llm7Key" },
 };
@@ -24,13 +27,19 @@ export const FREE_MODELS = [
   { id: "minimax", label: "MiniMax M2.7", note: "Mạnh nhất trong nhóm miễn phí, ít lượt mỗi ngày" },
   { id: "gpt-oss", label: "GPT-OSS 20B", note: "Model suy luận của OpenAI, 1 câu mỗi 30 giây" },
   { id: "nemotron", label: "Nemotron 3 Nano 30B", note: "Model suy luận của NVIDIA" },
+  { id: "chat-at", label: "ch.at", note: "Model nhỏ của OpenAI: trả lời trong vài giây, gần như không giới hạn lượt" },
   { id: "codestral", label: "Codestral", note: "Chuyên code, trả lời nhanh" },
   { id: "mistral-nemo", label: "Mistral Nemo", note: "Nhẹ, nhanh, hợp hỏi đáp ngắn" },
 ];
-// Strongest first. The main answer may use MiniMax; helper requests leave its small daily quota alone.
+// Strongest first. The main answer may use MiniMax; helper requests (reading samples, analysis, test
+// generators) go to the fast unlimited ch.at first, keeping the 30-second GPT-OSS slot for the solution;
+// the "fast" effort level answers from ch.at right away.
 const ROUTES = {
-  main: ["minimax", "gpt-oss", "gpt-oss-llm7", "nemotron", "codestral", "mistral-nemo"],
-  helper: ["gpt-oss", "gpt-oss-llm7", "nemotron", "codestral", "mistral-nemo"],
+  main: ["minimax", "gpt-oss", "gpt-oss-llm7", "nemotron", "chat-at", "codestral", "mistral-nemo"],
+  helper: ["chat-at", "gpt-oss", "gpt-oss-llm7", "nemotron", "codestral", "mistral-nemo"],
+  fast: ["chat-at", "gpt-oss", "gpt-oss-llm7", "codestral", "mistral-nemo"],
+  // Long structured replies (several programs in one JSON) would be cut by ch.at's short replies.
+  helperLong: ["gpt-oss", "gpt-oss-llm7", "nemotron", "codestral", "mistral-nemo"],
 };
 const ACCEPTABLE_WAIT_MS = 35_000; // wait this long for a stronger model rather than drop to a weaker one
 const LONG_BLOCK_MS = 10 * 60_000; // blocks longer than this (daily quotas) are remembered across reloads
@@ -119,7 +128,8 @@ export async function* chat(messages, opts = {}) {
     reasoning += r.reasoning;
     // Some services close the stream without a finish reason; an unclosed code block or no answer means cut off too.
     const unfinished = (content.match(/```/g) || []).length % 2 === 1 || !content.trim();
-    const cut = r.finish === "length" || (r.finish !== "stop" && unfinished);
+    // An unclosed code block is cut off even when the service reports "stop" (free tiers sometimes do).
+    const cut = r.finish === "length" || unfinished;
     if (!cut || part === MAX_CONTINUATIONS) return;
     // A few words of answer give the model nothing to continue from, so it starts over from its notes instead.
     const resume = content.length >= 400 || content.includes("```");
@@ -144,6 +154,7 @@ export function withSchemaInstruction(messages, schema) {
 async function* request(messages, { schema = null, maxTokens = 0, effort = "medium", route = "main", pin = null, avoid = null, signal } = {}, dropFence = false) {
   // Structured replies must fit in one short reply (reasoning included), so they think briefly.
   if (schema) effort = "low";
+  if (schema && maxTokens > 900) route = "helperLong";
   let lastError = "", substituted = false, failures = 0;
   const deadline = Date.now() + MAX_WAIT_MS;
   while (Date.now() < deadline && failures < MAX_FAILURES) {
@@ -154,7 +165,7 @@ async function* request(messages, { schema = null, maxTokens = 0, effort = "medi
       substituted = true;
       yield { notice: `${PROVIDERS[pin].label} đang hết lượt miễn phí, tạm dùng ${p.label} cho câu trả lời này.` };
     }
-    const key = pref(p.keyPref);
+    const key = p.keyPref ? pref(p.keyPref) : "";
     while (Date.now() < readyAt(id)) {
       yield { wait: Math.ceil((readyAt(id) - Date.now()) / 1000) };
       await sleep(Math.min(1000, readyAt(id) - Date.now()), signal);
@@ -215,8 +226,9 @@ async function* request(messages, { schema = null, maxTokens = 0, effort = "medi
 function usageOf(usage, started, model) {
   const output = (usage && usage.completion_tokens) || 0;
   const seconds = (performance.now() - started) / 1000;
+  // Cached replies arrive almost instantly; a speed measured over less than a second is meaningless.
   return { input: (usage && usage.prompt_tokens) || 0, output, model,
-           speed: seconds ? Math.round((output / seconds) * 10) / 10 : 0 };
+           speed: seconds >= 1 ? Math.round((output / seconds) * 10) / 10 : 0 };
 }
 
 async function* readStream(res, started, dropFence, model) {

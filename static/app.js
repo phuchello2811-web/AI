@@ -1,6 +1,7 @@
 "use strict";
 
 const $ = (s, el = document) => el.querySelector(s);
+const icon = (name) => `<svg class="i"><use href="#i-${name}"/></svg>`;
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const JUDGE_LANGS = { cpp: "cpp", "c++": "cpp", c: "c", python: "python", py: "python" };
 const LANG_NAMES = { cpp: "C++", c: "C", python: "Python" };
@@ -57,7 +58,12 @@ async function connect() {
     $("#status").innerHTML = `<span class="dot" style="background:var(--bad)"></span>Không tải được bản chạy trong trình duyệt: ${esc(e.message)}`;
     return;
   }
-  refreshStatus();
+  await refreshStatus();
+  // Fetch the C++ compiler and Python in the background so the first judge run does not wait.
+  const conn = navigator.connection || {};
+  if (!conn.saveData && !/2g/.test(conn.effectiveType || "")) {
+    setTimeout(() => state.local.warmup().catch(() => {}), 2000);
+  }
 }
 
 async function refreshStatus() {
@@ -66,10 +72,13 @@ async function refreshStatus() {
     setOnline(true);
     state.models = h.models;
     const saved = els.model.value || loadPref("model");
-    els.model.innerHTML = h.models.map((m) =>
-      `<option value="${esc(m.name)}">${esc(m.label || m.name)}${m.cached ? " ✓" : ""}</option>`).join("");
+    const option = (m) => `<option value="${esc(m.name)}">${esc(m.label || m.name)}</option>`;
+    const groups = [["cloud", "Máy chủ miễn phí, dùng ngay"], ["local", "Chạy trong trình duyệt (WebGPU)"]];
+    els.model.innerHTML = h.browser
+      ? groups.map(([p, label]) => h.models.some((m) => m.provider === p)
+        ? `<optgroup label="${label}">${h.models.filter((m) => m.provider === p).map(option).join("")}</optgroup>` : "").join("")
+      : h.models.map(option).join("");
     if (h.models.some((m) => m.name === saved)) els.model.value = saved;
-    else if (h.browser && (navigator.deviceMemory || 8) <= 4) els.model.value = "Qwen3.5-2B";
     updateThinkToggle();
     if (h.browser) return showBrowserStatus(h);
     $("#status").innerHTML = !h.ollama
@@ -84,15 +93,8 @@ async function refreshStatus() {
 }
 
 function showBrowserStatus(h) {
-  $("#bannerLocal").classList.add("hidden");
-  $("#serverBanner .spinner").classList.add("hidden");
-  $("#bannerOnline").classList.toggle("hidden", h.webgpu && h.models.some((m) => m.cached));
-  $("#noWebGPU").classList.toggle("hidden", h.webgpu);
-  $("#webgpuInfo").classList.toggle("hidden", !h.webgpu);
-  $("#serverBanner").classList.toggle("hidden", $("#bannerOnline").classList.contains("hidden"));
-  $("#status").innerHTML = h.webgpu
-    ? `<span class="dot" style="background:var(--ok)"></span>Chạy trong trình duyệt · miễn phí, không giới hạn`
-    : `<span class="dot" style="background:var(--bad)"></span>Trình duyệt chưa hỗ trợ WebGPU`;
+  $("#serverBanner").classList.add("hidden");
+  $("#status").innerHTML = `<span class="dot" style="background:var(--ok)"></span>Sẵn sàng · miễn phí, không cần cài đặt`;
 }
 
 // Until the server answers, show the banner and retry every 2 s; then load everything once.
@@ -125,7 +127,7 @@ async function refreshConversations() {
   for (const c of convs) {
     const row = document.createElement("div");
     row.className = "conv" + (c.id === state.convId ? " active" : "");
-    row.innerHTML = `<span>${esc(c.title)}</span><button class="icon-btn del" title="Xoá">🗑</button>`;
+    row.innerHTML = `<span>${esc(c.title)}</span><button class="icon-btn del" title="Xoá">${icon("trash")}</button>`;
     row.onclick = () => openConversation(c.id);
     row.querySelector(".del").onclick = async (e) => {
       e.stopPropagation();
@@ -152,7 +154,7 @@ function addUserMessage(text, imageCount) {
   els.welcome.classList.add("hidden");
   const div = document.createElement("div");
   div.className = "msg user";
-  const imgs = imageCount ? `<span class="img-tag">🖼 ${imageCount} ảnh đính kèm</span>` : "";
+  const imgs = imageCount ? `<span class="img-tag">${icon("clip")} ${imageCount} ảnh đính kèm</span>` : "";
   div.innerHTML = `<div class="bubble">${imgs}${esc(text)}</div>`;
   els.messages.appendChild(div);
   scrollDown(true);
@@ -175,16 +177,16 @@ function enhanceCode(root) {
     head.className = "code-head";
     head.innerHTML = `<span class="lang">${esc(lang || "code")}</span>`;
     const copy = document.createElement("button");
-    copy.textContent = "Sao chép";
+    copy.innerHTML = `${icon("copy")}Sao chép`;
     copy.onclick = () => {
       navigator.clipboard.writeText(code.textContent);
-      copy.textContent = "Đã chép ✓";
-      setTimeout(() => (copy.textContent = "Sao chép"), 1500);
+      copy.innerHTML = `${icon("check")}Đã chép`;
+      setTimeout(() => (copy.innerHTML = `${icon("copy")}Sao chép`), 1500);
     };
     head.appendChild(copy);
     if (JUDGE_LANGS[lang]) {
       const open = document.createElement("button");
-      open.textContent = "▶ Mở trong trình chấm";
+      open.innerHTML = `${icon("play")}Chạy trong trình chấm`;
       open.onclick = () => openInJudge(JUDGE_LANGS[lang], code.textContent);
       head.appendChild(open);
     }
@@ -198,7 +200,7 @@ class Turn {
     els.welcome.classList.add("hidden");
     const msg = document.createElement("div");
     msg.className = "msg ai";
-    msg.innerHTML = `<div class="avatar">&lt;/&gt;</div><div class="ai-body"></div>`;
+    msg.innerHTML = `<img class="avatar" src="static/logo.svg" alt=""><div class="ai-body"></div>`;
     els.messages.appendChild(msg);
     this.body = msg.querySelector(".ai-body");
     this.seg = null;          // current text or thinking segment
@@ -211,8 +213,8 @@ class Turn {
 
   addWaiting() {
     const w = document.createElement("div");
-    w.className = "thinking live";
-    w.innerHTML = `<summary>Đang xử lý…</summary>`;
+    w.className = "status-line";
+    w.innerHTML = `<div class="spinner"></div><span>Đang xử lý…</span>`;
     this.body.appendChild(w);
     return w;
   }
@@ -255,6 +257,14 @@ class Turn {
   }
 
   handle(ev, live = true) {
+    if (ev.type === "status") {
+      // Transient progress (queueing for the free server, loading a model): one updating line.
+      if (!this.waiting) this.waiting = this.addWaiting();
+      $("span", this.waiting).textContent = ev.text;
+      this.body.appendChild(this.waiting);
+      if (live) scrollDown();
+      return;
+    }
     if (ev.type !== "usage" && ev.type !== "title") this.clearWaiting();
     switch (ev.type) {
       case "block_start":
@@ -293,7 +303,8 @@ class Turn {
       case "notice":
       case "error":
         this.closeSeg();
-        this.body.insertAdjacentHTML("beforeend", `<div class="alert ${ev.type}">${esc(ev.message || ev.text)}</div>`);
+        this.body.insertAdjacentHTML("beforeend", `<div class="alert ${ev.kind === "success" ? "success" : ev.type}">`
+          + `${icon(ev.type === "error" ? "alert" : ev.kind === "success" ? "check" : "spark")}<span>${esc(ev.message || ev.text)}</span></div>`);
         break;
       case "done":
         this.finish();
@@ -317,14 +328,15 @@ class Turn {
 
   toolCard(id, name) {
     const titles = {
-      run_code: "⚙️ Chạy thử code", stress_test: "🎲 Stress test", save_web_files: "💾 Lưu website",
-      extract_tests: "📋 Lấy test mẫu từ đề", analyze_problem: "🧭 Phân tích đề", knowledge: "📚 Tra thư viện thuật toán",
-      load_model: "⬇️ Tải model AI vào trình duyệt",
+      run_code: ["cpu", "Chạy thử code"], stress_test: ["dice", "Stress test"], save_web_files: ["layout", "Lưu và chạy thử website"],
+      extract_tests: ["list", "Lấy test mẫu từ đề"], analyze_problem: ["compass", "Phân tích đề"], knowledge: ["book", "Tra thư viện kiến thức"],
     };
-    const busy = { extract_tests: "đang đọc đề…", analyze_problem: "đang phân tích…", knowledge: "đang tra…", stress_test: "đang viết lời giải trâu và sinh test…" };
+    const busy = { extract_tests: "đang đọc đề…", analyze_problem: "đang phân tích…", knowledge: "đang tra…",
+                   stress_test: "đang viết lời giải trâu và sinh test…", save_web_files: "đang chạy thử trang…" };
+    const [ic, title] = titles[name] || ["spark", name];
     const el = document.createElement("div");
     el.className = "tool";
-    el.innerHTML = `<div class="tool-head"><div class="spinner"></div><span class="t-name">${titles[name] || esc(name)}</span><span class="t-sum">${busy[name] || "đang viết…"}</span></div><div class="tool-body"></div>`;
+    el.innerHTML = `<div class="tool-head"><div class="spinner"></div>${icon(ic)}<span class="t-name">${esc(title)}</span><span class="t-sum">${busy[name] || "đang viết…"}</span></div><div class="tool-body"></div>`;
     $(".tool-head", el).onclick = () => el.classList.toggle("open");
     this.body.appendChild(el);
     this.tools[id] = { el, name, chars: 0 };
@@ -342,7 +354,7 @@ class Turn {
       body.innerHTML = `<pre><code>${esc(inp.code)}</code></pre>`;
       const btn = document.createElement("button");
       btn.className = "btn ghost small";
-      btn.textContent = "▶ Mở trong trình chấm (kèm test)";
+      btn.innerHTML = `${icon("play")}Mở trong trình chấm (kèm test)`;
       btn.onclick = () => openInJudge(inp.language, inp.code, inp.tests, inp.time_limit);
       body.appendChild(btn);
     } else if (ev.name === "stress_test") {
@@ -371,13 +383,10 @@ class Turn {
       body.insertAdjacentHTML("beforeend", `<pre>${esc(out.error)}</pre>`);
       return;
     }
-    if (ev.name === "load_model") {
-      setBadge("OK", "Sẵn sàng");
-      sum.textContent = out.model || "";
-      if (live) refreshStatus();
-    } else if (ev.name === "analyze_problem") {
+    if (ev.name === "analyze_problem") {
       setBadge("OK", FORMAT_NAMES[out.format] || "Xong");
-      sum.textContent = [out.target_complexity, out.time_limit_seconds ? `TL ${out.time_limit_seconds}s` : ""].filter(Boolean).join(" · ");
+      sum.textContent = [out.target_complexity, out.time_limit_seconds ? `TL ${out.time_limit_seconds}s` : "",
+        out.tests_found != null ? `${out.tests_found} test mẫu` : ""].filter(Boolean).join(" · ");
       const list = (title, items) => items && items.length ? `<b>${title}</b><ul>${items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
       body.innerHTML = `<p>${esc(out.summary)}</p>${list("Quan sát", out.observations)}${list("Trường hợp biên", out.edge_cases)}`
         + (out.unique_answer === false ? `<p class="muted">AI cho rằng đề chấp nhận nhiều đáp án.</p>` : "");
@@ -385,7 +394,7 @@ class Turn {
       const topics = out.topics || [];
       setBadge("OK", `${topics.length} chủ đề`);
       sum.textContent = topics.map((t) => t.title).join(" · ");
-      body.innerHTML = topics.map((t) => `<button class="btn ghost small" data-topic="${esc(t.id)}">📖 ${esc(t.title)}</button>`).join(" ");
+      body.innerHTML = topics.map((t) => `<button class="btn ghost small" data-topic="${esc(t.id)}">${icon("book")}${esc(t.title)}</button>`).join(" ");
       body.querySelectorAll("[data-topic]").forEach((b) => (b.onclick = () => showLibrary(b.dataset.topic)));
     } else if (ev.name === "extract_tests") {
       const n = out.tests.length;
@@ -402,8 +411,10 @@ class Turn {
       body.insertAdjacentHTML("beforeend", `<pre>${esc(JSON.stringify(out, null, 2))}</pre>`);
       if (out.result !== "ALL_PASSED") t.el.classList.add("open");
     } else if (ev.name === "save_web_files") {
-      setBadge("OK", "Đã lưu");
-      sum.textContent = `${out.saved.length} file · ${out.all_files.length} file trong dự án`;
+      const errors = out.errors || [];
+      setBadge(errors.length ? "WA" : "OK", errors.length ? `${errors.length} lỗi` : "Chạy tốt");
+      sum.textContent = errors.length ? errors[0] : "index.html · không có lỗi khi chạy";
+      if (errors.length) body.innerHTML = `<pre>${esc(errors.join("\n"))}</pre>`;
       state.previewUrl = out.preview_url;
       if (live) showPreview(true);
     }
@@ -472,7 +483,7 @@ async function openConversation(id) {
 /* ================= Sending ================= */
 
 function setBusy(busy) {
-  els.send.textContent = busy ? "■ Dừng" : "Gửi ➤";
+  els.send.innerHTML = busy ? `${icon("stop")}<span>Dừng</span>` : `${icon("send")}<span>Gửi</span>`;
   els.send.classList.toggle("danger", busy);
   els.send.classList.toggle("primary", !busy);
 }
@@ -567,7 +578,7 @@ function renderAttachments() {
   state.images.forEach((im, i) => {
     const d = document.createElement("div");
     d.className = "thumb";
-    d.innerHTML = `<img src="${im.url}" alt="ảnh đính kèm"><button type="button" title="Bỏ">✕</button>`;
+    d.innerHTML = `<img src="${im.url}" alt="ảnh đính kèm"><button type="button" title="Bỏ">${icon("x")}</button>`;
     d.querySelector("button").onclick = () => { state.images.splice(i, 1); renderAttachments(); };
     els.attachments.appendChild(d);
   });
@@ -601,7 +612,7 @@ function renderTests() {
     card.className = "test-card";
     card.innerHTML = `<textarea placeholder="Input test ${i + 1}" spellcheck="false"></textarea>
       <textarea placeholder="Output mong đợi (bỏ trống = chỉ xem output)" spellcheck="false"></textarea>
-      <button class="icon-btn" title="Xoá test">✕</button>`;
+      <button class="icon-btn" title="Xoá test">${icon("x")}</button>`;
     const [inp, exp] = card.querySelectorAll("textarea");
     inp.value = t.input; exp.value = t.expected_output ?? "";
     inp.oninput = () => (t.input = inp.value);
@@ -642,7 +653,7 @@ async function runJudge() {
     $("#judgeResult").innerHTML = `<div class="alert error">${esc(e.message)}</div>`;
   } finally {
     btn.disabled = false;
-    btn.textContent = "▶ Chạy";
+    btn.innerHTML = `${icon("play")}Chạy`;
   }
 }
 
@@ -660,7 +671,7 @@ function showTab(name) {
 async function loadPreviewFiles() {
   state.files = state.convId ? await api(`/api/conversations/${state.convId}/files`).catch(() => []) : [];
   const sel = $("#fileSelect");
-  sel.innerHTML = `<option value="">🌐 Xem trước</option>` + state.files.map((f) => `<option value="${esc(f.path)}">📄 ${esc(f.path)}</option>`).join("");
+  sel.innerHTML = `<option value="">Xem trước</option>` + state.files.map((f) => `<option value="${esc(f.path)}">Mã nguồn: ${esc(f.path)}</option>`).join("");
   if (!state.previewUrl && !state.local && state.files.some((f) => f.path === "index.html")) state.previewUrl = `/preview/${state.convId}/index.html`;
 }
 
@@ -724,7 +735,7 @@ function openTopic(id) {
   renderMarkdown(view, `## ${e.title}\n\n${e.body}`);
   const ask = document.createElement("button");
   ask.className = "btn primary small";
-  ask.textContent = "💬 Hỏi AI về chủ đề này";
+  ask.innerHTML = `${icon("chat")}Hỏi AI về chủ đề này`;
   ask.onclick = () => {
     els.mode.value = "chat";
     savePref("mode", "chat");
@@ -788,6 +799,12 @@ els.effort.value = loadPref("effort") || "deep";
 els.effort.onchange = () => savePref("effort", els.effort.value);
 els.mode.onchange = () => savePref("mode", els.mode.value);
 els.model.onchange = () => { savePref("model", els.model.value); updateThinkToggle(); };
+
+const settings = $("#settingsDialog");
+$("#settingsBtn").onclick = () => { $("#pollenKey").value = loadPref("pollenKey") || ""; settings.showModal(); };
+settings.addEventListener("close", () => {
+  if (settings.returnValue === "save") savePref("pollenKey", $("#pollenKey").value.trim());
+});
 els.think.onchange = () => savePref("think", els.think.checked ? "1" : "0");
 
 renderTests();

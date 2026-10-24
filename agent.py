@@ -416,7 +416,7 @@ def _solve_problem(client, messages, state, model, think, effort):
             elif result:
                 feedback, verdict = _stress_feedback(result), result["result"]
         if feedback is None:
-            yield {"type": "notice", "text": "✅ Code đã qua " + " và ".join(passed) + "."
+            yield {"type": "notice", "text": "Code đã qua " + " và ".join(passed) + "."
                    if passed else "Không chạy được kiểm tra nào cho code này."}
             return
         if fixes_left == 0:
@@ -429,12 +429,12 @@ def _solve_problem(client, messages, state, model, think, effort):
             messages.append({"role": "user", "content": feedback + "\n\nĐã sửa nhiều lần mà vẫn sai. Hãy BỎ hướng làm "
                              "hiện tại và nghĩ lại từ đầu: liệt kê lại các quan sát, chọn một thuật toán KHÁC, kiểm tra "
                              "bằng tay trên test mẫu rồi mới viết lại TOÀN BỘ code."})
-            yield {"type": "notice", "text": "🧠 Các cách sửa chưa hiệu quả, AI đang nghĩ lại từ đầu với hướng khác…"}
+            yield {"type": "notice", "text": "Các cách sửa chưa hiệu quả, AI đang nghĩ lại từ đầu với hướng khác…"}
             continue
         fixes_left -= 1
         fixes_done += 1
         messages.append({"role": "user", "content": feedback})
-        yield {"type": "notice", "text": f"🔧 Code chưa đúng ({verdict}), AI đang tự sửa (lần {fixes_done})…"}
+        yield {"type": "notice", "text": f"Code chưa đúng ({verdict}), AI đang tự sửa (lần {fixes_done})…"}
 
 
 def run_turn(client: ollama.Client, conversation_id: str, messages: list, state: dict,
@@ -445,8 +445,9 @@ def run_turn(client: ollama.Client, conversation_id: str, messages: list, state:
         return
 
     system = SYSTEM_PROMPTS[mode]
-    if mode == "chat":
-        entries = knowledge.retrieve(messages[-1]["content"], k=2, min_score=3)
+    if mode in ("chat", "web"):
+        entries = knowledge.retrieve(messages[-1]["content"], k=2, min_score=3 if mode == "chat" else 2,
+                                     kind="web" if mode == "web" else "cp")
         if entries:
             system += "\n\n" + knowledge.as_prompt(entries)
             yield {"type": "tool_start", "id": "kb", "name": "knowledge"}

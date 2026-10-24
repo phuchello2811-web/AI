@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CodeMaster AI</title>
+<meta name="description" content="Trợ lý AI miễn phí giải bài lập trình thi đấu (VOI, IOI, Code Jam) và làm website: tự chấm, tự stress test, tự sửa. Không cần cài đặt.">
+<meta name="theme-color" content="#0b0d12">
+<link rel="icon" type="image/svg+xml" href="static/logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
@@ -12,78 +15,108 @@
 <link rel="stylesheet" href="static/style.css">
 </head>
 <body>
+<!-- Icon set: 24px line icons drawn for this app, used as <svg class="i"><use href="#i-name"/></svg> -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 12.5h9l1-12.5M10 11v5M14 11v5"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10.5 13.5M21 3l-6.5 18-4-7.5L3 9.5z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5l11 6.5-11 6.5z"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5.5 15H5a1 1 0 01-1-1V5a1 1 0 011-1h9a1 1 0 011 1v.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 11-2.2-5.3M19.5 4.5v4.5H15"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-8.5 8.5M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.8 3.2 2.8 14.8 0 18M12 3c-2.8 3.2-2.8 14.8 0 18"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 5.5A2.5 2.5 0 017.5 3H19v15H7.5A2.5 2.5 0 005 20.5zM5 20.5A2.5 2.5 0 017.5 18H19v3H7.5A2.5 2.5 0 015 18.5"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><path d="M20 11.5l-7.8 7.8a5 5 0 01-7.1-7.1l8.5-8.5a3.3 3.3 0 014.7 4.7l-8.4 8.4a1.7 1.7 0 01-2.4-2.4L15 6.9"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5.5a4 4 0 01-8 0zM8 6H4.5a3.5 3.5 0 003.7 4.4M16 6h3.5a3.5 3.5 0 01-3.7 4.4M12 13.5V17M8.5 20.5h7M10 17h4v3.5h-4z"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="M8.5 7L3.5 12l5 5M15.5 7l5 5-5 5"/></symbol>
+    <symbol id="i-bug" viewBox="0 0 24 24"><rect x="8" y="7" width="8" height="12.5" rx="4"/><path d="M12 11v8.5M4 13.5h4M16 13.5h4M5 8l3 2M19 8l-3 2M5 19.5l3-2M19 19.5l-3-2M10 4.5l1 2.5M14 4.5l-1 2.5"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3c.9 5.2 3 7.2 8.5 8.5-5.5 1.3-7.6 3.3-8.5 8.5-.9-5.2-3-7.2-8.5-8.5C9 10.2 11.1 8.2 12 3z"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5l9.5 16.5h-19zM12 10v4.5M12 17.2v.3"/></symbol>
+    <symbol id="i-dice" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="M8.6 8.6h.01M15.4 8.6h.01M12 12h.01M8.6 15.4h.01M15.4 15.4h.01" stroke-width="2.6"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" /></symbol>
+    <symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20.5 12a8.5 8.5 0 01-12.3 7.6L3.5 20.5l1-4.4A8.5 8.5 0 1120.5 12z"/></symbol>
+    <symbol id="i-layout" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9h18M9 9v11"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2.5L4.5 13.5H11l-1 8 8.5-11H12z"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/></symbol>
+    <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.5 6.2a4.3 4.3 0 00-5.6 5.6L3.5 17.2l3.3 3.3 5.4-5.4a4.3 4.3 0 005.6-5.6l-2.7 2.7-2.4-.6-.6-2.4z"/></symbol>
+    <symbol id="i-judge" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.2l2.4 2.4 4.6-4.9"/></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M10 10h4v4h-4zM9.5 3v4M14.5 3v4M9.5 17v4M14.5 17v4M3 9.5h4M3 14.5h4M17 9.5h4M17 14.5h4"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18.5a4.5 4.5 0 01-.6-9A6 6 0 0118 9a4.75 4.75 0 01-.5 9.5z"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6.5a1 1 0 00-1 1v16a1 1 0 001 1h11a1 1 0 001-1V7.5zM14 3v4.5h4.5"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+  </defs>
+</svg>
+
 <div class="app">
-  <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <div class="logo">&lt;/&gt;</div>
+      <img class="logo" src="static/logo.svg" alt="" width="38" height="38">
       <div>
         <div class="brand-name">CodeMaster</div>
-        <div class="brand-sub">AI code chạy trên máy bạn</div>
+        <div class="brand-sub">Lập trình thi đấu &amp; làm web</div>
       </div>
     </div>
-    <button class="btn primary wide" id="newChat">+ Cuộc trò chuyện mới</button>
+    <button class="btn primary wide" id="newChat"><svg class="i"><use href="#i-plus"/></svg>Cuộc trò chuyện mới</button>
+    <div class="conv-label">Gần đây</div>
     <div class="conv-list" id="convList"></div>
-    <div class="sidebar-foot" id="status">Đang kiểm tra…</div>
+    <div class="sidebar-foot">
+      <div id="status">Đang khởi động…</div>
+      <button class="icon-btn" id="settingsBtn" title="Cài đặt"><svg class="i"><use href="#i-settings"/></svg></button>
+    </div>
   </aside>
 
-  <!-- Chat -->
   <main class="chat">
     <header class="chat-head">
-      <button class="icon-btn mobile-only" id="toggleSidebar" title="Danh sách">☰</button>
+      <button class="icon-btn mobile-only" id="toggleSidebar" title="Danh sách"><svg class="i"><use href="#i-menu"/></svg></button>
       <div class="chat-title" id="chatTitle">CodeMaster</div>
       <div class="head-actions">
-        <button class="btn ghost" id="openJudge">⚖️<span class="label"> Trình chấm</span></button>
-        <button class="btn ghost" id="openPreview">🌐<span class="label"> Website</span></button>
-        <button class="btn ghost" id="openLibrary">📚<span class="label"> Thư viện</span></button>
+        <button class="btn ghost" id="openJudge" title="Trình chấm"><svg class="i"><use href="#i-judge"/></svg><span class="label">Trình chấm</span></button>
+        <button class="btn ghost" id="openPreview" title="Website"><svg class="i"><use href="#i-globe"/></svg><span class="label">Website</span></button>
+        <button class="btn ghost" id="openLibrary" title="Thư viện"><svg class="i"><use href="#i-book"/></svg><span class="label">Thư viện</span></button>
       </div>
     </header>
 
     <div class="server-banner hidden" id="serverBanner">
       <div class="spinner"></div>
       <div>
-        <div id="bannerLocal">
-          <b>Đang chờ server CodeMaster…</b>
-          <div>Trang này cần server chạy ở <code id="apiBase">http://127.0.0.1:8000</code>. Trong VS Code: <b>Terminal → Run Task → CodeMaster: server</b> (hoặc gõ <code>./run.sh</code>). Trang sẽ tự kết nối khi server lên.</div>
-        </div>
-        <div id="bannerOnline" class="hidden">
-          <div id="webgpuInfo">
-            <b>AI chạy ngay trong trình duyệt của bạn</b>: miễn phí, không cần cài gì, không giới hạn tin nhắn, dữ liệu không rời khỏi máy.
-            <div>Lần đầu gửi tin nhắn, trình duyệt tải model đã chọn (khoảng 2–6 GB tuỳ model) và khi chấm code thì tải trình biên dịch C++ (~105 MB). Sau đó mọi thứ được lưu lại, lần sau mở là dùng ngay. Máy yếu nên chọn <b>Qwen3.5 2B</b>.</div>
-          </div>
-          <div id="noWebGPU" class="hidden">
-            <b>Trình duyệt này chưa chạy được AI (thiếu WebGPU).</b>
-            <div>Hãy mở trang bằng <b>Chrome</b> hoặc <b>Edge</b> bản mới trên máy tính (Windows, macOS, ChromeOS), hoặc Safari 26 trở lên. Máy có GPU rời hoặc chip Apple M chạy nhanh nhất.</div>
-          </div>
-        </div>
+        <b>Đang chờ server CodeMaster…</b>
+        <div>Trang này cần server chạy ở <code id="apiBase">http://127.0.0.1:8000</code>. Trong VS Code: <b>Terminal → Run Task → CodeMaster: server</b> (hoặc gõ <code>./run.sh</code>). Trang sẽ tự kết nối khi server lên.</div>
       </div>
     </div>
 
     <div class="messages" id="messages">
       <div class="welcome" id="welcome">
-        <h1>Xin chào! Hôm nay code gì?</h1>
-        <p>AI chạy <b>hoàn toàn trên máy bạn</b>: offline, miễn phí. Dán đề bài tin học (VOI, IOI, Code Jam…): AI phân tích đề, tra thư viện thuật toán, viết code, tự chấm test mẫu, stress test với lời giải trâu và tự sửa khi sai.</p>
-        <div class="pipeline">
-          <span>📋 Đọc test</span><span>🧭 Phân tích</span><span>📚 Tra kiến thức</span><span>✍️ Giải</span><span>⚙️ Chấm mẫu</span><span>🎲 Stress test</span><span>🔧 Tự sửa</span>
-        </div>
+        <img class="hero-logo" src="static/logo.svg" alt="" width="64" height="64">
+        <h1>Hôm nay bạn muốn giải bài gì?</h1>
+        <p>Dán đề bài tin học (VOI, IOI, Code Jam, Codeforces) hoặc mô tả một website. AI phân tích đề, tra thư viện thuật toán, viết code, tự chấm test, stress test với lời giải trâu và tự sửa khi sai.</p>
+        <ol class="pipeline">
+          <li>Phân tích đề</li><li>Tra kiến thức</li><li>Viết lời giải</li><li>Chấm test mẫu</li><li>Stress test</li><li>Tự sửa</li>
+        </ol>
         <div class="starters">
           <button class="starter" data-mode="cp" data-prompt="Cho dãy n số nguyên a1, a2, ..., an (1 ≤ n ≤ 2·10^5, |ai| ≤ 10^9). Hãy tìm đoạn con liên tiếp khác rỗng có tổng lớn nhất.&#10;&#10;Input: Dòng đầu chứa n. Dòng thứ hai chứa n số nguyên.&#10;Output: Một số nguyên là tổng lớn nhất.&#10;&#10;Ví dụ&#10;Input:&#10;5&#10;-2 1 -3 4 -1&#10;Output:&#10;4">
-            <span class="s-icon">🏆</span><b>Giải bài tin</b><span>Thuật toán, độ phức tạp, code đã test</span>
+            <span class="s-icon"><svg class="i"><use href="#i-trophy"/></svg></span><b>Giải bài tin</b><span>Thuật toán, độ phức tạp, code đã chấm</span>
           </button>
-          <button class="starter" data-mode="web" data-prompt="Build cho tôi một website portfolio cá nhân cho lập trình viên: hero section, kỹ năng, dự án, liên hệ. Giao diện hiện đại, tối, responsive, có hiệu ứng nhẹ.">
-            <span class="s-icon">🌐</span><b>Build website</b><span>Xem trước trực tiếp bên phải</span>
+          <button class="starter" data-mode="cp" data-effort="max" data-prompt="Cho cây n đỉnh (1 ≤ n ≤ 2·10^5), mỗi đỉnh có giá trị a_i (1 ≤ a_i ≤ 10^9). Có q truy vấn (1 ≤ q ≤ 2·10^5), mỗi truy vấn cho u, v, k: tìm giá trị nhỏ thứ k trên đường đi từ u đến v (bảo đảm đường đi có ít nhất k đỉnh).&#10;&#10;Input: Dòng đầu n, q. Dòng hai n số a_i. n-1 dòng tiếp theo mỗi dòng một cạnh u v. q dòng tiếp theo mỗi dòng u v k.&#10;Output: q dòng, mỗi dòng một đáp án.&#10;&#10;Ví dụ&#10;Input:&#10;5 3&#10;5 3 8 1 6&#10;1 2&#10;1 3&#10;2 4&#10;2 5&#10;4 3 2&#10;5 5 1&#10;4 5 3&#10;Output:&#10;3&#10;6&#10;6">
+            <span class="s-icon"><svg class="i"><use href="#i-target"/></svg></span><b>Bài khó (mức Tối đa)</b><span>Cây + persistent segment tree</span>
+          </button>
+          <button class="starter" data-mode="web" data-prompt="Làm cho tôi một website portfolio cá nhân cho lập trình viên thi đấu: phần giới thiệu, thành tích (VOI, ICPC), kỹ năng, dự án, liên hệ có form. Giao diện hiện đại, responsive, có hiệu ứng khi cuộn.">
+            <span class="s-icon"><svg class="i"><use href="#i-layout"/></svg></span><b>Làm website</b><span>Tự chạy thử, tự sửa lỗi, xem trước ngay</span>
+          </button>
+          <button class="starter" data-mode="web" data-prompt="Làm game rắn săn mồi chơi trên trình duyệt: điều khiển bằng phím mũi tên và vuốt trên điện thoại, có điểm, điểm cao lưu lại, tăng tốc dần, nút tạm dừng và chơi lại.">
+            <span class="s-icon"><svg class="i"><use href="#i-play"/></svg></span><b>Làm game</b><span>Canvas, điều khiển phím và cảm ứng</span>
           </button>
           <button class="starter" data-mode="chat" data-prompt="Code C++ của tôi bị WA, giúp tôi tìm lỗi và sửa:&#10;&#10;```cpp&#10;// dán code vào đây&#10;```">
-            <span class="s-icon">🐞</span><b>Debug code</b><span>Tìm test sai &amp; sửa lỗi</span>
-          </button>
-          <button class="starter" data-mode="chat" data-prompt="Giải thích thuật toán Segment Tree với lazy propagation: ý tưởng, độ phức tạp, và code mẫu C++.">
-            <span class="s-icon">📚</span><b>Học thuật toán</b><span>Giải thích kèm code mẫu</span>
-          </button>
-          <button class="starter" data-mode="cp" data-effort="max" data-prompt="Google Code Jam style. The first line contains T, the number of test cases. Each test case has a line with N (1 ≤ N ≤ 10^5) followed by N integers S1..SN (1 ≤ Si ≤ 10^6), the sides of N dice. A die with k sides shows 1..k. You may arrange some dice into a straight: a sequence of dice showing x, x+1, ..., x+L-1, each die used at most once, starting from 1 (so x = 1). What is the longest straight you can form?&#10;For each test case, output one line Case #x: y.&#10;&#10;Sample&#10;Input:&#10;3&#10;4&#10;6 10 12 8&#10;6&#10;5 4 5 4 4 4&#10;10&#10;10 10 7 6 7 4 4 5 7 4&#10;Output:&#10;Case #1: 4&#10;Case #2: 5&#10;Case #3: 9">
-            <span class="s-icon">🎲</span><b>Code Jam (Tối đa)</b><span>Phân tích + stress test</span>
+            <span class="s-icon"><svg class="i"><use href="#i-bug"/></svg></span><b>Tìm lỗi code</b><span>Tìm test sai và sửa</span>
           </button>
           <button class="starter" data-mode="chat" data-prompt="Hướng dẫn chiến thuật làm bài IOI: chia subtask, ăn điểm từng phần, cách viết hàm theo grader, và lấy ví dụ bài IOI 2016 Aliens (Aliens trick).">
-            <span class="s-icon">🥇</span><b>Chiến thuật IOI</b><span>Subtask, grader, Aliens trick</span>
+            <span class="s-icon"><svg class="i"><use href="#i-book"/></svg></span><b>Học thuật toán</b><span>Chiến thuật IOI, giải thích kèm code</span>
           </button>
         </div>
       </div>
@@ -91,38 +124,37 @@
 
     <form class="composer" id="composer">
       <div class="attachments" id="attachments"></div>
-      <textarea id="input" rows="1" placeholder="Dán đề bài (kèm ví dụ input/output)… Enter để gửi, Shift+Enter xuống dòng"></textarea>
+      <textarea id="input" rows="1" placeholder="Dán đề bài hoặc mô tả website… (Enter để gửi, Shift+Enter xuống dòng)"></textarea>
       <div class="composer-bar">
         <label class="icon-btn" title="Đính kèm ảnh đề bài">
-          📎<input type="file" id="fileInput" accept="image/*" multiple hidden>
+          <svg class="i"><use href="#i-clip"/></svg><input type="file" id="fileInput" accept="image/*" multiple hidden>
         </label>
         <select id="mode" title="Chế độ">
-          <option value="cp">🏆 Giải bài tin</option>
-          <option value="web">🌐 Build web</option>
-          <option value="chat">💬 Hỏi đáp</option>
+          <option value="cp">Giải bài tin</option>
+          <option value="web">Làm web</option>
+          <option value="chat">Hỏi đáp</option>
         </select>
-        <select id="model" title="Model"></select>
-        <select id="effort" title="Mức suy nghĩ khi giải bài tin">
-          <option value="fast">⚡ Nhanh</option>
-          <option value="deep">🧭 Kỹ</option>
-          <option value="max">🧠 Tối đa</option>
+        <select id="model" title="Model AI"></select>
+        <select id="effort" title="Mức suy nghĩ">
+          <option value="fast">Nhanh</option>
+          <option value="deep">Kỹ</option>
+          <option value="max">Tối đa</option>
         </select>
-        <label class="toggle" id="thinkWrap" title="Cho AI suy nghĩ trước khi trả lời: đúng hơn nhưng chậm hơn">
+        <label class="toggle hidden" id="thinkWrap" title="Cho AI suy nghĩ trước khi trả lời: đúng hơn nhưng chậm hơn">
           <input type="checkbox" id="think"> Suy nghĩ
         </label>
         <span class="hint" id="usage"></span>
-        <button type="submit" class="btn primary" id="sendBtn">Gửi ➤</button>
+        <button type="submit" class="btn primary send" id="sendBtn" title="Gửi"><svg class="i"><use href="#i-send"/></svg><span>Gửi</span></button>
       </div>
     </form>
   </main>
 
-  <!-- Right panel -->
   <section class="panel hidden" id="panel">
     <div class="panel-tabs">
-      <button class="tab active" data-tab="judge">⚖️ Trình chấm</button>
-      <button class="tab" data-tab="preview">🌐 Website</button>
-      <button class="tab" data-tab="library">📚 Thư viện</button>
-      <button class="icon-btn close" id="closePanel" title="Đóng">✕</button>
+      <button class="tab active" data-tab="judge"><svg class="i"><use href="#i-judge"/></svg>Trình chấm</button>
+      <button class="tab" data-tab="preview"><svg class="i"><use href="#i-globe"/></svg>Website</button>
+      <button class="tab" data-tab="library"><svg class="i"><use href="#i-book"/></svg>Thư viện</button>
+      <button class="icon-btn close" id="closePanel" title="Đóng"><svg class="i"><use href="#i-x"/></svg></button>
     </div>
 
     <div class="tab-body" id="tab-judge">
@@ -132,13 +164,13 @@
           <option value="python">Python 3</option>
           <option value="c">C</option>
         </select>
-        <label class="tl">TL <input type="number" id="judgeTL" value="2" min="0.1" max="10" step="0.1">s</label>
-        <button class="btn primary" id="runBtn">▶ Chạy</button>
+        <label class="tl">Giới hạn <input type="number" id="judgeTL" value="2" min="0.1" max="10" step="0.1"> giây</label>
+        <button class="btn primary" id="runBtn"><svg class="i"><use href="#i-play"/></svg>Chạy</button>
       </div>
       <div class="editor-wrap"><textarea id="editor"></textarea></div>
       <div class="tests-head">
         <b>Test</b>
-        <button class="btn ghost small" id="addTest">+ Thêm test</button>
+        <button class="btn ghost small" id="addTest"><svg class="i"><use href="#i-plus"/></svg>Thêm test</button>
       </div>
       <div class="tests" id="tests"></div>
       <div class="judge-result" id="judgeResult"></div>
@@ -147,25 +179,40 @@
     <div class="tab-body hidden" id="tab-preview">
       <div class="preview-bar">
         <select id="fileSelect"><option value="">Xem trước</option></select>
-        <button class="btn ghost small" id="reloadPreview">⟳ Tải lại</button>
-        <a class="btn ghost small" id="openTab" target="_blank" rel="noopener">↗ Tab mới</a>
+        <button class="btn ghost small" id="reloadPreview"><svg class="i"><use href="#i-refresh"/></svg>Tải lại</button>
+        <a class="btn ghost small" id="openTab" target="_blank" rel="noopener"><svg class="i"><use href="#i-external"/></svg>Tab mới</a>
       </div>
       <iframe id="previewFrame" sandbox="allow-scripts allow-forms allow-modals allow-popups"></iframe>
       <pre class="file-view hidden" id="fileView"><code></code></pre>
-      <div class="empty-preview" id="emptyPreview">Chưa có website nào trong cuộc trò chuyện này.<br>Hãy nhờ AI “build một trang web…”.</div>
+      <div class="empty-preview" id="emptyPreview">Chưa có website nào trong cuộc trò chuyện này.<br>Chọn chế độ "Làm web" rồi mô tả trang bạn muốn.</div>
     </div>
 
     <div class="tab-body hidden" id="tab-library">
       <div class="library-bar">
-        <input type="search" id="libSearch" placeholder="Tìm kỹ thuật: dp, segment tree, Code Jam, IOI…">
+        <input type="search" id="libSearch" placeholder="Tìm kỹ thuật: dp, segment tree, Code Jam, responsive…">
       </div>
       <div class="library">
         <div class="lib-list" id="libList"></div>
-        <article class="lib-view md" id="libView"><p class="muted">Chọn một chủ đề. Đây cũng là kiến thức AI tự tra cứu khi giải bài.</p></article>
+        <article class="lib-view md" id="libView"><p class="muted">Chọn một chủ đề. Đây cũng là kiến thức AI tự tra cứu khi giải bài và làm web.</p></article>
       </div>
     </div>
   </section>
 </div>
+
+<dialog class="dialog" id="settingsDialog">
+  <form method="dialog">
+    <h2>Cài đặt</h2>
+    <p class="muted">Model mặc định GPT-OSS 20B chạy miễn phí trên máy chủ của Pollinations.ai, không cần tài khoản; gói miễn phí trả lời tối đa 1 lần mỗi 30 giây, CodeMaster tự xếp hàng. Nếu có khoá Pollinations riêng, dán vào đây để bỏ thời gian chờ. Khoá chỉ lưu trong trình duyệt này.</p>
+    <label class="field">Khoá Pollinations (không bắt buộc)
+      <input type="password" id="pollenKey" autocomplete="off" placeholder="sk_…">
+    </label>
+    <p class="muted">Các model "trong trình duyệt" chạy ngay trên máy bạn bằng WebGPU: không giới hạn, dùng được khi mất mạng, nhưng lần đầu phải tải 2–6 GB. Khi máy chủ miễn phí không phản hồi, CodeMaster tự chuyển sang model này.</p>
+    <div class="dialog-actions">
+      <button class="btn ghost" value="cancel">Đóng</button>
+      <button class="btn primary" id="saveSettings" value="save">Lưu</button>
+    </div>
+  </form>
+</dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>

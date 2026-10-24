@@ -724,5 +724,380 @@
    "kiem tra"
   ],
   "body": "Viết lời giải trâu (chắc chắn đúng, chậm) và chương trình sinh test nhỏ ngẫu nhiên; so sánh hàng trăm test. Test sai đầu tiên thường nhỏ, đủ để trace tay. CodeMaster tự làm việc này ở mức suy nghĩ **Tối đa**."
+ },
+ {
+  "id": "suffix_automaton",
+  "title": "Suffix automaton",
+  "keys": [
+   "suffix automaton",
+   "automat hau to",
+   "sam",
+   "so xau con khac nhau",
+   "xau con chung dai nhat",
+   "longest common substring",
+   "so lan xuat hien"
+  ],
+  "body": "Automat nhỏ nhất nhận mọi xâu con, O(n) trạng thái (≤ 2n).\n```cpp\nstruct SAM { struct St { int len, link; map<char,int> nx; }; vector<St> st; int last = 0;\n  SAM() { st.push_back({0, -1, {}}); }\n  void extend(char c) { int cur = st.size(); st.push_back({st[last].len + 1, 0, {}}); int p = last;\n    while (p != -1 && !st[p].nx.count(c)) { st[p].nx[c] = cur; p = st[p].link; }\n    if (p != -1) { int q = st[p].nx[c];\n      if (st[p].len + 1 == st[q].len) st[cur].link = q;\n      else { int cl = st.size(); st.push_back({st[p].len + 1, st[q].link, st[q].nx});\n        while (p != -1 && st[p].nx[c] == q) { st[p].nx[c] = cl; p = st[p].link; }\n        st[q].link = st[cur].link = cl; } }\n    last = cur; } };\n```\n- Số xâu con khác nhau = Σ (len[v] - len[link[v]]). Xâu con chung dài nhất của S, T: dựng SAM của S, chạy T trên automat."
+ },
+ {
+  "id": "persistent_ds",
+  "title": "Cấu trúc dữ liệu bền vững (persistent)",
+  "keys": [
+   "persistent",
+   "ben vung",
+   "phien ban",
+   "version",
+   "k-th smallest",
+   "phan tu nho thu k tren doan",
+   "truy van lich su"
+  ],
+  "body": "- Segment tree bền vững: mỗi cập nhật tạo O(log n) nút mới, giữ gốc mỗi phiên bản. Bộ nhớ ~ n·log n nút (khai báo mảng 20·n đến 40·n).\n- Phần tử nhỏ thứ k trên đoạn [l, r]: nén giá trị, phiên bản i = cây đếm của tiền tố a[1..i], đi xuống đồng thời trên root[r] và root[l-1].\n```cpp\nint L[M], R[M], cnt[M], tot;\nint upd(int prev, int lo, int hi, int pos) { int cur = ++tot; L[cur] = L[prev]; R[cur] = R[prev]; cnt[cur] = cnt[prev] + 1;\n  if (lo < hi) { int mid = (lo + hi) / 2; if (pos <= mid) L[cur] = upd(L[prev], lo, mid, pos); else R[cur] = upd(R[prev], mid + 1, hi, pos); }\n  return cur; }\nint kth(int u, int v, int lo, int hi, int k) { if (lo == hi) return lo; int mid = (lo + hi) / 2, c = cnt[L[v]] - cnt[L[u]];\n  return k <= c ? kth(L[u], L[v], lo, mid, k) : kth(R[u], R[v], mid + 1, hi, k - c); }\n```"
+ },
+ {
+  "id": "treap",
+  "title": "Treap / cây cân bằng ngẫu nhiên (split, merge)",
+  "keys": [
+   "treap",
+   "cay can bang",
+   "split",
+   "merge",
+   "dao doan",
+   "reverse segment",
+   "chen vao vi tri",
+   "implicit"
+  ],
+  "body": "Implicit treap: mảng hỗ trợ chèn/xoá ở vị trí bất kỳ, đảo đoạn, tổng đoạn trong O(log n) kỳ vọng.\n```cpp\nmt19937 rng(712367); struct Node { int pri, sz = 1; long long val, sum; bool rev = false; Node *l = nullptr, *r = nullptr; Node(long long v): pri(rng()), val(v), sum(v) {} };\nint sz(Node* t) { return t ? t->sz : 0; } long long sm(Node* t) { return t ? t->sum : 0; }\nvoid push(Node* t) { if (t && t->rev) { swap(t->l, t->r); if (t->l) t->l->rev ^= 1; if (t->r) t->r->rev ^= 1; t->rev = false; } }\nvoid pull(Node* t) { t->sz = 1 + sz(t->l) + sz(t->r); t->sum = t->val + sm(t->l) + sm(t->r); }\nvoid split(Node* t, int k, Node*& a, Node*& b) { if (!t) { a = b = nullptr; return; } push(t);\n  if (sz(t->l) < k) { split(t->r, k - sz(t->l) - 1, t->r, b); a = t; } else { split(t->l, k, a, t->l); b = t; } pull(t); }\nNode* merge(Node* a, Node* b) { push(a); push(b); if (!a || !b) return a ? a : b;\n  if (a->pri > b->pri) { a->r = merge(a->r, b); pull(a); return a; } b->l = merge(a, b->l); pull(b); return b; }\n```\nĐảo đoạn [l, r]: split thành 3 phần, bật cờ rev ở phần giữa, merge lại."
+ },
+ {
+  "id": "li_chao",
+  "title": "Li Chao tree (min/max của các đường thẳng)",
+  "keys": [
+   "li chao",
+   "duong thang",
+   "line",
+   "convex hull trick",
+   "cht",
+   "toi uu dp tuyen tinh",
+   "kx + b"
+  ],
+  "body": "Thêm đường y = kx + b, truy vấn min tại x, mỗi thao tác O(log C), không cần hệ số góc đơn điệu.\n```cpp\nstruct Line { long long k, b; long long f(long long x) const { return k * x + b; } };\nvector<Line> t(4 * N, {0, LLONG_MAX / 4});\nvoid add(Line nw, int v, int l, int r) { int m = (l + r) / 2; bool lef = nw.f(l) < t[v].f(l), mid = nw.f(m) < t[v].f(m);\n  if (mid) swap(t[v], nw); if (l == r) return; if (lef != mid) add(nw, 2 * v, l, m); else add(nw, 2 * v + 1, m + 1, r); }\nlong long query(int x, int v, int l, int r) { long long res = t[v].f(x); if (l == r) return res; int m = (l + r) / 2;\n  return min(res, x <= m ? query(x, 2 * v, l, m) : query(x, 2 * v + 1, m + 1, r)); }\n```\nToạ độ x lớn: nén các x truy vấn trước."
+ },
+ {
+  "id": "bitset_opt",
+  "title": "Tối ưu bằng bitset",
+  "keys": [
+   "bitset",
+   "toi uu bit",
+   "n^3 / 64",
+   "subset sum",
+   "tong tap con",
+   "dem tam giac",
+   "transitive closure",
+   "bao dong bac cau"
+  ],
+  "body": "`std::bitset<N>` làm 64 phép một lúc: O(n³) thành O(n³/64), subset sum O(n·S/64).\n```cpp\nbitset<100001> can; can[0] = 1;\nfor (int x : a) can |= can << x;   // can[s] = có tập con tổng s\n```\n- Bao đóng bắc cầu: `reach[i] |= reach[k]` khi i tới được k (Floyd–Warshall bitset).\n- Đếm tam giác: với mỗi cạnh (u, v), `(adj[u] & adj[v]).count()`."
+ },
+ {
+  "id": "euler_path",
+  "title": "Đường đi / chu trình Euler (Hierholzer)",
+  "keys": [
+   "euler",
+   "di qua moi canh",
+   "moi canh dung mot lan",
+   "hierholzer",
+   "chu trinh euler",
+   "ve mot net",
+   "domino"
+  ],
+  "body": "- Vô hướng: có chu trình Euler ⇔ liên thông (xét đỉnh có cạnh) và mọi đỉnh bậc chẵn; đường Euler ⇔ đúng 0 hoặc 2 đỉnh bậc lẻ.\n- Có hướng: mọi đỉnh in = out (chu trình); hoặc một đỉnh out = in + 1 (đầu) và một đỉnh in = out + 1 (cuối).\n```cpp\n// Hierholzer, có hướng; g[u] = danh sách (v, id cạnh), ptr[u] = con trỏ cạnh chưa dùng\nvector<int> path; void dfs(int u) { while (ptr[u] < g[u].size()) { auto [v, id] = g[u][ptr[u]++]; if (used[id]) continue; used[id] = 1; dfs(v); } path.push_back(u); }\n// đảo ngược path; kiểm tra path.size() == m + 1\n```"
+ },
+ {
+  "id": "min_cost_flow",
+  "title": "Luồng chi phí nhỏ nhất, Hungarian",
+  "keys": [
+   "min cost",
+   "chi phi nho nhat",
+   "min cost flow",
+   "mcmf",
+   "hungarian",
+   "phan cong toi uu",
+   "assignment problem",
+   "ghep cap chi phi"
+  ],
+  "body": "- MCMF: lặp tìm đường tăng chi phí nhỏ nhất (SPFA, hoặc Dijkstra với thế vị Johnson khi không có cạnh âm sau chuẩn hoá). O(F · E log V).\n- Bài phân công n × n (ghép người–việc tổng chi phí nhỏ nhất): Hungarian O(n³), n ≤ 500.\n- Dựng mạng: nguồn → người (cap 1, cost 0), người → việc (cap 1, cost c), việc → đích (cap 1, cost 0)."
+ },
+ {
+  "id": "math_advanced",
+  "title": "Toán nâng cao: Möbius, nội suy Lagrange, Miller-Rabin",
+  "keys": [
+   "mobius",
+   "moebius",
+   "nguyen to cung nhau",
+   "coprime",
+   "gcd = 1",
+   "lagrange",
+   "noi suy",
+   "da thuc bac k",
+   "miller",
+   "rabin",
+   "pollard",
+   "kiem tra nguyen to so lon"
+  ],
+  "body": "- **Möbius**: số cặp (i, j) ≤ n với gcd = 1 là Σ_d μ(d)·⌊n/d⌋²; sàng tuyến tính tính μ.\n- **Lagrange**: Σ i^k (i = 1..n) là đa thức bậc k + 1 theo n; tính tại k + 2 điểm rồi nội suy O(k) với mod nguyên tố.\n- **Miller–Rabin** tất định cho 64 bit với cơ số {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37}; nhân mod dùng `__int128`.\n```cpp\nusing u64 = unsigned long long; u64 mulmod(u64 a, u64 b, u64 m) { return (__int128)a * b % m; }\nu64 pw(u64 a, u64 e, u64 m) { u64 r = 1; for (a %= m; e; e >>= 1, a = mulmod(a, a, m)) if (e & 1) r = mulmod(r, a, m); return r; }\nbool isPrime(u64 n) { if (n < 2) return false; for (u64 p : {2,3,5,7,11,13,17,19,23,29,31,37}) if (n % p == 0) return n == p;\n  u64 d = n - 1; int s = 0; while (!(d & 1)) d >>= 1, ++s;\n  for (u64 a : {2,3,5,7,11,13,17,19,23,29,31,37}) { u64 x = pw(a, d, n); if (x == 1 || x == n - 1) continue;\n    bool comp = true; for (int r = 1; r < s && comp; ++r) { x = mulmod(x, x, n); if (x == n - 1) comp = false; } if (comp) return false; }\n  return true; }\n```"
+ },
+ {
+  "id": "probability_dp",
+  "title": "Xác suất & kỳ vọng",
+  "keys": [
+   "xac suat",
+   "ky vong",
+   "expected",
+   "probability",
+   "trung binh so buoc",
+   "ngau nhien",
+   "tung xuc xac",
+   "modular inverse expectation"
+  ],
+  "body": "- Tuyến tính kỳ vọng: E[X + Y] = E[X] + E[Y] kể cả khi không độc lập; đếm \"đóng góp\" của từng phần tử.\n- DP kỳ vọng thường tính ngược từ trạng thái cuối: `E[s] = 1 + Σ p(s→t)·E[t]`; vòng tự lặp: chuyển vế `E[s](1 - p_ss) = ...`.\n- Đáp án dạng P/Q mod p: tính P·Q^(p-2) mod p. Xác suất số thực: in `setprecision(10)`."
+ },
+ {
+  "id": "combinatorics_adv",
+  "title": "Tổ hợp nâng cao: Catalan, bao hàm–loại trừ, Burnside",
+  "keys": [
+   "catalan",
+   "ngoac dung",
+   "bao ham loai tru",
+   "inclusion exclusion",
+   "burnside",
+   "polya",
+   "vong co",
+   "necklace",
+   "stirling",
+   "chia keo"
+  ],
+  "body": "- Catalan C_n = C(2n, n)/(n + 1): dãy ngoặc đúng, cây nhị phân, đường đi không vượt đường chéo.\n- Bao hàm–loại trừ trên tập điều kiện: duyệt mask, dấu (-1)^|mask|; đếm số không chia hết cho tập số nguyên tố.\n- Burnside: số vòng cổ n hạt k màu (quay) = (1/n)·Σ_{d|n} φ(d)·k^(n/d).\n- Stirling loại 2 S(n, k): chia n phần tử vào k nhóm không rỗng, S(n, k) = k·S(n-1, k) + S(n-1, k-1)."
+ },
+ {
+  "id": "sweep_geometry",
+  "title": "Quét đường thẳng & hình học nâng cao",
+  "keys": [
+   "sweep line",
+   "quet",
+   "hop cac hinh chu nhat",
+   "union of rectangles",
+   "giao doan thang",
+   "segment intersection",
+   "cap diem gan nhat",
+   "closest pair",
+   "rotating calipers",
+   "duong kinh"
+  ],
+  "body": "- Diện tích hợp hình chữ nhật: sự kiện theo x, segment tree trên y (đếm phủ + độ dài phủ) — O(n log n).\n- Cặp điểm gần nhất: chia để trị O(n log n), hoặc sort theo x + set theo y.\n- Đường kính tập điểm: bao lồi + rotating calipers O(n).\n- Hai đoạn thẳng cắt nhau: dùng dấu của tích có hướng, xét trường hợp thẳng hàng riêng; luôn dùng số nguyên khi được."
+ },
+ {
+  "id": "dp_more",
+  "title": "Các dạng DP khác: knapsack biến thể, DP trên DAG, DP profile",
+  "keys": [
+   "knapsack khong gioi han",
+   "unbounded",
+   "bounded knapsack",
+   "so luong gioi han",
+   "dag",
+   "duong di dai nhat",
+   "profile",
+   "lat gach",
+   "domino tiling",
+   "broken profile"
+  ],
+  "body": "- Cái túi không giới hạn: duyệt w **tăng dần** (mỗi vật dùng nhiều lần). Có giới hạn số lượng: tách nhị phân 1, 2, 4… hoặc deque đơn điệu theo đồng dư.\n- Đường đi dài nhất trên DAG: DP theo thứ tự topo; trên đồ thị có chu trình thì NP-khó (trừ khi n nhỏ → bitmask).\n- Lát gạch lưới n × m với m ≤ 10: DP broken profile, trạng thái là mặt nạ m bit, O(n·m·2^m)."
+ },
+ {
+  "id": "interactive_patterns",
+  "title": "Mẫu bài tương tác & truy vấn hạn chế",
+  "keys": [
+   "so truy van toi da",
+   "queries limit",
+   "ternary search",
+   "chat tam phan",
+   "unimodal",
+   "don dinh",
+   "interactive",
+   "tuong tac"
+  ],
+  "body": "- Đếm giới hạn truy vấn: ~log2(n) ⇒ chia đôi; ~2·log2(n) ⇒ chia đôi hai lần hoặc tìm từng bit; ~n/2 ⇒ ghép cặp.\n- Hàm đơn đỉnh (unimodal): chặt tam phân hoặc chặt nhị phân trên f(m) < f(m + 1).\n- Tìm cạnh/đỉnh ẩn trên cây: chặt nhị phân trên thứ tự Euler hoặc trên tập con của danh sách cạnh."
+ },
+ {
+  "id": "debug_strategy",
+  "title": "Chiến lược khi bị WA/TLE trong phòng thi",
+  "keys": [
+   "wa",
+   "tle",
+   "sai",
+   "debug",
+   "khong qua",
+   "bi sai",
+   "chay cham",
+   "toi uu hang so"
+  ],
+  "body": "1. Đọc lại đề: giới hạn, định dạng, \"khác rỗng\", đánh số từ 0 hay 1, nhiều test.\n2. Viết brute force + sinh test nhỏ, so sánh (stress test) để có phản ví dụ nhỏ nhất.\n3. TLE: kiểm tra độ phức tạp thật (vòng lồng ẩn trong `erase`/`find` của vector, `memset` mỗi test, `endl`), dùng mảng tĩnh thay `map` khi được, bật đọc nhanh.\n4. RE: chỉ số âm/vượt mảng, chia 0, đệ quy quá sâu, truy cập `top()` của stack rỗng."
+ },
+ {
+  "id": "web_layout",
+  "title": "Bố cục web hiện đại, responsive",
+  "kind": "web",
+  "keys": [
+   "layout",
+   "bo cuc",
+   "responsive",
+   "grid",
+   "flex",
+   "landing",
+   "trang chu",
+   "portfolio",
+   "website",
+   "mobile",
+   "dien thoai"
+  ],
+  "body": "- Khung trang: `header` / `main` / `section` / `footer` có ngữ nghĩa; nội dung trong `.container { width: min(1120px, 100% - 32px); margin-inline: auto; }`.\n- Lưới thẻ tự co giãn: `display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px;`.\n- Cỡ chữ mượt: `font-size: clamp(2rem, 5vw, 3.5rem)` cho tiêu đề. Ảnh `max-width: 100%; height: auto`.\n- Mobile trước: style mặc định cho màn hẹp, `@media (min-width: 768px)` cho màn rộng. Menu mobile dùng nút có `aria-expanded`."
+ },
+ {
+  "id": "web_design_system",
+  "title": "Hệ thống thiết kế: màu, chữ, khoảng cách, chế độ tối",
+  "kind": "web",
+  "keys": [
+   "dep",
+   "hien dai",
+   "giao dien",
+   "mau",
+   "theme",
+   "dark",
+   "toi",
+   "design",
+   "ui",
+   "phong cach",
+   "font"
+  ],
+  "body": "```css\n:root { --bg: #0b0d12; --surface: #141823; --text: #e8eaf0; --muted: #9aa3b5; --accent: #6d8bff; --radius: 14px;\n        --shadow: 0 10px 30px rgb(0 0 0 / .25); font-family: \"Inter\", system-ui, sans-serif; }\n@media (prefers-color-scheme: light) { :root { --bg: #f7f8fb; --surface: #fff; --text: #141823; --muted: #5b6475; } }\n```\n- Thang khoảng cách 4/8/12/16/24/32/48/64 px; tối đa 2 font (Google Fonts), 1 màu nhấn.\n- Nút: padding 12px 20px, bo góc, trạng thái `:hover`, `:focus-visible` rõ ràng. Tương phản chữ ≥ 4.5:1.\n- Nội dung thật, cụ thể theo chủ đề; không dùng \"Lorem ipsum\"."
+ },
+ {
+  "id": "web_animation",
+  "title": "Hiệu ứng & chuyển động",
+  "kind": "web",
+  "keys": [
+   "hieu ung",
+   "animation",
+   "chuyen dong",
+   "transition",
+   "scroll",
+   "cuon",
+   "parallax",
+   "fade",
+   "dong"
+  ],
+  "body": "- Chỉ animate `transform` và `opacity` (mượt 60 fps); `transition: transform .2s ease`.\n- Hiện dần khi cuộn: `IntersectionObserver` thêm class `.visible` (opacity 0 → 1, translateY(16px) → 0).\n- Tôn trọng `@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }`."
+ },
+ {
+  "id": "web_forms",
+  "title": "Form, kiểm tra dữ liệu, lưu localStorage",
+  "kind": "web",
+  "keys": [
+   "form",
+   "dang nhap",
+   "dang ky",
+   "lien he",
+   "contact",
+   "validate",
+   "kiem tra",
+   "localstorage",
+   "luu",
+   "todo",
+   "ghi chu"
+  ],
+  "body": "- Dùng `<label for>` cho mọi ô, `type=\"email\"`, `required`, `minlength`; hiện lỗi cạnh ô bằng `aria-describedby`.\n- `form.addEventListener(\"submit\", e => { e.preventDefault(); if (!form.checkValidity()) return form.reportValidity(); ... })`.\n- Lưu dữ liệu: `localStorage.setItem(key, JSON.stringify(data))`, đọc trong `try/catch` (có thể bị chặn) và có giá trị mặc định.\n- Ứng dụng nhỏ (todo, ghi chú): một mảng state + hàm `render()` vẽ lại danh sách sau mỗi thay đổi."
+ },
+ {
+  "id": "web_canvas_game",
+  "title": "Game & đồ hoạ với Canvas",
+  "kind": "web",
+  "keys": [
+   "game",
+   "tro choi",
+   "canvas",
+   "ran san moi",
+   "snake",
+   "flappy",
+   "tetris",
+   "pong",
+   "ve",
+   "do hoa",
+   "2d"
+  ],
+  "body": "```js\nconst cvs = document.querySelector(\"canvas\"), ctx = cvs.getContext(\"2d\");\nfunction resize() { const r = devicePixelRatio || 1; cvs.width = cvs.clientWidth * r; cvs.height = cvs.clientHeight * r; ctx.setTransform(r, 0, 0, r, 0, 0); }\nlet last = performance.now();\nfunction frame(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; update(dt); draw(); requestAnimationFrame(frame); }\naddEventListener(\"resize\", resize); resize(); requestAnimationFrame(frame);\n```\n- Cập nhật theo `dt` (giây) để tốc độ không phụ thuộc màn hình; điều khiển bằng bàn phím và cảm ứng (`pointerdown`).\n- Có màn hình bắt đầu, điểm, điểm cao (localStorage), nút chơi lại, tạm dừng."
+ },
+ {
+  "id": "web_charts",
+  "title": "Biểu đồ & dashboard",
+  "kind": "web",
+  "keys": [
+   "bieu do",
+   "chart",
+   "dashboard",
+   "thong ke",
+   "do thi",
+   "bang",
+   "table",
+   "du lieu",
+   "data"
+  ],
+  "body": "- Chart.js từ CDN: `<script src=\"https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js\"></script>`, `new Chart(canvas, { type: \"line\", data, options: { responsive: true, maintainAspectRatio: false } })` và đặt canvas trong khung có chiều cao cố định.\n- Dashboard: hàng thẻ số liệu (KPI) trên cùng, biểu đồ chính, bảng chi tiết có sắp xếp/tìm kiếm.\n- Số liệu dùng `toLocaleString(\"vi-VN\")`; màu nhất quán cho cùng một chuỗi dữ liệu."
+ },
+ {
+  "id": "web_fetch_api",
+  "title": "Gọi API & dữ liệu bất đồng bộ",
+  "kind": "web",
+  "keys": [
+   "api",
+   "fetch",
+   "thoi tiet",
+   "weather",
+   "json",
+   "tai du lieu",
+   "async",
+   "await",
+   "tim kiem"
+  ],
+  "body": "```js\nasync function load(url) {\n  const res = await fetch(url);\n  if (!res.ok) throw new Error(`HTTP ${res.status}`);\n  return res.json();\n}\n```\n- Luôn có trạng thái đang tải, lỗi (kèm nút thử lại) và rỗng. Ô tìm kiếm: debounce 300 ms.\n- Chỉ dùng API công khai không cần key và cho phép CORS (ví dụ open-meteo.com cho thời tiết); không nhúng khoá bí mật vào trang."
+ },
+ {
+  "id": "web_accessibility",
+  "title": "Khả năng truy cập & SEO cơ bản",
+  "kind": "web",
+  "keys": [
+   "seo",
+   "accessibility",
+   "truy cap",
+   "aria",
+   "alt",
+   "meta",
+   "ban phim",
+   "nguoi khiem thi"
+  ],
+  "body": "- `<html lang=\"vi\">`, `<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">`, `<title>` và `<meta name=\"description\">` có nghĩa.\n- Ảnh có `alt`; nút là `<button>` (không phải `<div>`); mọi thao tác dùng được bằng bàn phím; `:focus-visible` rõ.\n- Một `<h1>` mỗi trang, tiêu đề theo thứ tự h2 → h3."
+ },
+ {
+  "id": "web_js_quality",
+  "title": "JavaScript gọn, không lỗi",
+  "kind": "web",
+  "keys": [
+   "javascript",
+   "js",
+   "loi",
+   "error",
+   "script",
+   "su kien",
+   "event",
+   "dom"
+  ],
+  "body": "- Đặt `<script>` cuối `<body>` (hoặc `defer`) để DOM đã sẵn sàng; kiểm tra phần tử tồn tại trước khi dùng.\n- Ủy quyền sự kiện cho danh sách động: `list.addEventListener(\"click\", e => { const item = e.target.closest(\"[data-id]\"); ... })`.\n- Không dùng biến chưa khai báo; `const`/`let`; tránh `innerHTML` với dữ liệu người dùng (dùng `textContent`).\n- Thư viện từ CDN phải ghi rõ phiên bản (ví dụ `@4.4.1`)."
  }
 ]

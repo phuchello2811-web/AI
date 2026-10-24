@@ -89,11 +89,13 @@ export function createKnowledge(entries) {
     new RegExp(`(?<![a-z0-9])${escapeRe(normalize(k))}(?![a-z0-9])`)])]));
   const byId = new Map(entries.map((e) => [e.id, e]));
   return {
-    entries, byId, ids: entries.map((e) => e.id),
-    retrieve(text, topics = [], k = 3, minScore = 2) {
+    entries, byId, ids: entries.filter((e) => (e.kind || "cp") === "cp").map((e) => e.id),
+    // kind: "cp" for contest techniques, "web" for front-end knowledge.
+    retrieve(text, topics = [], k = 3, minScore = 2, kind = "cp") {
       const norm = normalize(text);
-      const chosen = new Set([...(topics || []), ...boundTopics(text)]);
+      const chosen = new Set([...(topics || []), ...(kind === "cp" ? boundTopics(text) : [])]);
       return entries
+        .filter((e) => (e.kind || "cp") === kind)
         .map((e) => [keyRes.get(e.id).reduce((s, [w, re]) => s + (re.test(norm) ? w : 0), 0) + (chosen.has(e.id) ? 6 : 0), e])
         .filter(([score]) => score >= minScore)
         .sort((a, b) => b[0] - a[0])
@@ -128,8 +130,8 @@ export function lastCodeBlock(text, langs) {
   return null;
 }
 
-function trimHistory(messages, systemChars) {
-  const budget = Math.max(4000, HISTORY_CHARS - systemChars);
+function trimHistory(messages, systemChars, totalChars = HISTORY_CHARS) {
+  const budget = Math.max(4000, totalChars - systemChars);
   const kept = [];
   let total = 0;
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -215,41 +217,58 @@ function generatorOk(code) {
 
 /* ---------------- the agent ---------------- */
 
+// Reasoning effort for strong (cloud) models at each effort level.
+const REASONING = { fast: "low", deep: "medium", max: "high" };
+const STRONG_HISTORY_CHARS = 60000;
+const WEB_FIX_ROUNDS = 2;
+
 /**
- * deps: llm.chat(messages, opts) async iterator of {text|thinking|usage}; judge.runTests / judge.stressTest
- * (results shaped like sandbox.py); knowledge (createKnowledge); prompts (static/prompts.json);
- * saveSite(conv, html) -> preview url.
+ * deps: llm (models.js: chat(messages, opts) streaming {text|thinking|usage|wait|status|notice}, stop(),
+ * isStrong(model)); judge.runTests / judge.stressTest (results shaped like sandbox.py); knowledge
+ * (createKnowledge); prompts (static/prompts.json); saveSite(conv, html) -> preview url;
+ * checkSite(html) -> list of runtime errors (optional).
  */
-export function createAgent({ llm, judge, knowledge, prompts, saveSite }) {
-  const analysisSchema = {
-    type: "object",
-    properties: {
-      summary: { type: "string" },
-      format: { type: "string", enum: FORMATS },
-      time_limit_seconds: { type: "number" },
-      target_complexity: { type: "string" },
-      observations: { type: "array", items: { type: "string" } },
-      edge_cases: { type: "array", items: { type: "string" } },
-      unique_answer: { type: "boolean" },
-      topics: { type: "array", items: { type: "string", enum: knowledge.ids } },
-    },
-    required: ["summary", "format", "time_limit_seconds", "target_complexity", "observations", "edge_cases", "unique_answer", "topics"],
+export function createAgent({ llm, judge, knowledge, prompts, saveSite, checkSite }) {
+  const analysisProps = {
+    summary: { type: "string" },
+    format: { type: "string", enum: FORMATS },
+    time_limit_seconds: { type: "number" },
+    target_complexity: { type: "string" },
+    observations: { type: "array", items: { type: "string" } },
+    edge_cases: { type: "array", items: { type: "string" } },
+    unique_answer: { type: "boolean" },
+    topics: { type: "array", items: { type: "string", enum: knowledge.ids } },
   };
+  const analysisSchema = { type: "object", properties: analysisProps, required: Object.keys(analysisProps) };
+  // Strong models read the samples and analyse the problem in one request (the free cloud allows one reply per 30 s).
+  const fullSchema = { type: "object", properties: { tests: TEST_SCHEMA.properties.tests, ...analysisProps },
+    required: ["tests", ...Object.keys(analysisProps)] };
+  const helpersSchema = { type: "object", properties: { generator: { type: "string" }, brute: { type: "string" } },
+    required: ["generator", "brute"] };
 
-  let lastLooped = false; // whether the latest streamReply was cut off for repeating itself
+  let ctx = {};             // per turn: model, strong, effort, think, signal
+  let lastLooped = false;   // whether the latest streamReply was cut off for repeating itself
 
-  async function* streamReply(system, messages, think, signal) {
-    const request = [{ role: "system", content: system }, ...trimHistory(messages, system.length)];
+  const chatOpts = (extra) => ({ model: ctx.model, effort: REASONING[ctx.effort] || "medium", think: ctx.think,
+    signal: ctx.signal, ...extra });
+
+  async function* streamReply(system, messages) {
+    const budget = ctx.strong ? STRONG_HISTORY_CHARS : HISTORY_CHARS;
+    const request = [{ role: "system", content: system }, ...trimHistory(messages, system.length, budget)];
     let text = "", current = null, thinkingTail = "", looped = false;
-    for await (const part of llm.chat(request, { think, temperature: 0.6, maxTokens: MAX_TOKENS.reply, signal })) {
+    for await (const part of llm.chat(request, chatOpts({ temperature: 0.6, maxTokens: MAX_TOKENS.reply }))) {
       if (looped) continue; // draining the interrupted stream
+      if (part.wait) { yield { type: "status", text: `Đang chờ lượt của máy chủ miễn phí: ${part.wait} giây` }; continue; }
+      if (part.status) { yield { type: "status", text: part.status }; continue; }
+      if (part.notice) { yield { type: "notice", text: part.notice }; continue; }
       thinkingTail = (thinkingTail + (part.thinking || "")).slice(-400);
       if (isLooping(text) || isLooping(thinkingTail)) {
         looped = true;
         llm.stop();
         continue;
       }
-      if (part.thinking) {
+      // Reasoning of a continuation (after the answer started) would split the answer on screen; skip it.
+      if (part.thinking && !text) {
         if (current !== "thinking") { current = "thinking"; yield { type: "block_start", kind: "thinking" }; }
         yield { type: "thinking", text: part.thinking };
       }
@@ -265,9 +284,13 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite }) {
     return looped ? text.slice(0, -400) : text;
   }
 
-  async function* quiet(messages, toolId, opts) {
+  /** A helper request whose output is not shown as chat text; progress goes to tool card `toolId`. */
+  async function* quiet(messages, toolId, extra) {
     let text = "", reported = 0;
-    for await (const part of llm.chat(messages, opts)) {
+    for await (const part of llm.chat(messages, chatOpts(extra))) {
+      if (part.wait) yield { type: "tool_status", id: toolId, text: `đang chờ lượt của máy chủ miễn phí: ${part.wait} giây` };
+      else if (part.status) yield { type: "tool_status", id: toolId, text: part.status };
+      else if (part.notice) yield { type: "notice", text: part.notice };
       if (!part.text) continue;
       text += part.text;
       if (text.length - reported >= 200) {
@@ -278,27 +301,35 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite }) {
     return text;
   }
 
-  async function extractTests(statement, signal) {
-    let raw = "";
-    for await (const part of llm.chat([{ role: "system", content: prompts.extract }, { role: "user", content: statement }],
-      { schema: TEST_SCHEMA, temperature: 0, maxTokens: MAX_TOKENS.extract, signal })) raw += part.text || "";
-    let tests;
-    try { tests = JSON.parse(raw).tests || []; } catch { return []; }
-    return tests.filter((t) => t && typeof t.input === "string" && typeof t.output === "string" && testsLookReal(t, statement))
+  const parseJSON = (raw) => { try { const v = JSON.parse(raw); return v && typeof v === "object" ? v : null; } catch { return null; } };
+
+  function cleanTests(tests, statement) {
+    return (tests || []).filter((t) => t && typeof t.input === "string" && typeof t.output === "string" && testsLookReal(t, statement))
       .slice(0, 10).map((t) => ({ input: t.input.trim() + "\n", expected_output: t.output.trim() }));
   }
 
-  async function* analyze(statement, signal) {
+  function cleanAnalysis(a) {
+    if (!a) return {};
+    const out = {};
+    for (const key of Object.keys(analysisProps)) if (key in a) out[key] = a[key];
+    out.topics = (out.topics || []).filter((t) => knowledge.byId.has(t)).slice(0, 4);
+    for (const key of ["observations", "edge_cases"]) out[key] = (out[key] || []).map(String).slice(0, 4);
+    return out;
+  }
+
+  async function* extractTests(statement) {
+    const raw = yield* quiet([{ role: "system", content: prompts.extract }, { role: "user", content: statement }], "extract",
+      { schema: TEST_SCHEMA, temperature: 0, maxTokens: MAX_TOKENS.extract, effort: "low" });
+    return cleanTests((parseJSON(raw) || {}).tests, statement);
+  }
+
+  async function* analyze(statement, withTests) {
     const hint = constraintHint(statement);
-    const request = [{ role: "system", content: prompts.analyze },
-      { role: "user", content: statement + (hint ? `\n\n(Gợi ý: ${hint})` : "") }];
-    const raw = yield* quiet(request, "analyze", { schema: analysisSchema, temperature: 0.2, maxTokens: MAX_TOKENS.analyze, signal });
-    let a;
-    try { a = JSON.parse(raw); } catch { return {}; }
-    if (!a || typeof a !== "object") return {};
-    a.topics = (a.topics || []).filter((t) => knowledge.byId.has(t)).slice(0, 4);
-    for (const key of ["observations", "edge_cases"]) a[key] = (a[key] || []).map(String).slice(0, 4);
-    return a;
+    const system = withTests ? `${prompts.analyze}\n- tests: ${prompts.extract}` : prompts.analyze;
+    const raw = yield* quiet([{ role: "system", content: system }, { role: "user", content: statement + (hint ? `\n\n(Gợi ý: ${hint})` : "") }],
+      "analyze", { schema: withTests ? fullSchema : analysisSchema, temperature: 0.2, maxTokens: MAX_TOKENS.analyze });
+    const data = parseJSON(raw);
+    return { analysis: cleanAnalysis(data), tests: withTests && data ? cleanTests(data.tests, statement) : [] };
   }
 
   function cpSystem(analysis, entries, hint) {
@@ -324,10 +355,20 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite }) {
     return result;
   }
 
-  /** Ask for the generator and the brute force separately; returns the helpers or null. */
-  async function* writeStressHelpers(statement, lang, source, id, signal) {
+  /** Generator and brute force: one JSON request for strong models, two separate ones for small models. */
+  async function* writeStressHelpers(statement, lang, source, id) {
+    const solution = `Problem:\n${statement}\n\nSolution:\n\`\`\`${lang}\n${source}\`\`\``;
+    if (ctx.strong) {
+      const data = parseJSON(yield* quiet([
+        { role: "system", content: `Return JSON with two Python programs.\ngenerator: ${prompts.stress_generator}\n\nbrute: ${prompts.stress_brute}` },
+        { role: "user", content: solution }], id, { schema: helpersSchema, temperature: 0.3, maxTokens: MAX_TOKENS.generator + MAX_TOKENS.brute, effort: "low" }));
+      const strip = (code) => String(code || "").replace(/^```\w*\n?|```\s*$/g, "");
+      if (data && generatorOk(["python", strip(data.generator)]) && strip(data.brute).trim()) {
+        return { generator: strip(data.generator), brute_language: "python", brute: strip(data.brute) };
+      }
+    }
     async function* ask(messages, maxTokens) {
-      const reply = yield* quiet(messages, id, { temperature: 0.3, maxTokens, signal });
+      const reply = yield* quiet(messages, id, { temperature: 0.3, maxTokens, effort: "low" });
       messages.push({ role: "assistant", content: reply });
       return lastCodeBlock(reply, CODE_LANGS);
     }
@@ -338,16 +379,15 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite }) {
       gen = yield* ask(request, MAX_TOKENS.generator);
       if (!generatorOk(gen)) return null;
     }
-    const brute = yield* ask([{ role: "system", content: prompts.stress_brute },
-      { role: "user", content: `Problem:\n${statement}\n\nSolution:\n\`\`\`${lang}\n${source}\`\`\`` }], MAX_TOKENS.brute);
+    const brute = yield* ask([{ role: "system", content: prompts.stress_brute }, { role: "user", content: solution }], MAX_TOKENS.brute);
     return brute ? { generator: gen[1], brute_language: brute[0], brute: brute[1] } : null;
   }
 
-  async function* stress(state, lang, source, timeLimit, id, signal) {
+  async function* stress(state, lang, source, timeLimit, id) {
     yield { type: "tool_start", id, name: "stress_test" };
     let helpers = state.stress;
     if (!helpers) {
-      helpers = yield* writeStressHelpers(state.statement || "", lang, source, id, signal);
+      helpers = yield* writeStressHelpers(state.statement || "", lang, source, id);
       if (!helpers) {
         yield { type: "tool_result", id, name: "stress_test", output: { error: "AI không viết được generator/brute force hợp lệ, bỏ qua stress test." } };
         return null;
@@ -368,22 +408,32 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite }) {
     return result;
   }
 
-  async function* solveProblem(conv, think, effort, signal) {
-    const cfg = EFFORTS[effort] || EFFORTS.deep;
+  async function* solveProblem(conv) {
+    const cfg = EFFORTS[ctx.effort] || EFFORTS.deep;
     const { messages, state } = conv;
     const text = messages[messages.length - 1].content;
     if (text.length > NEW_PROBLEM_CHARS) {
       Object.assign(state, { statement: text, analysis: {}, kb: [], stress: null });
-      yield { type: "tool_start", id: "extract", name: "extract_tests" };
-      const tests = await extractTests(text, signal);
-      if (tests.length) state.tests = tests;
-      yield { type: "tool_result", id: "extract", name: "extract_tests", output: { tests, reused: !tests.length && !!(state.tests || []).length } };
-      if (cfg.analyze) {
+      let tests = [];
+      if (ctx.strong) {
         yield { type: "tool_start", id: "analyze", name: "analyze_problem" };
-        state.analysis = yield* analyze(text, signal);
-        yield { type: "tool_result", id: "analyze", name: "analyze_problem",
-          output: Object.keys(state.analysis).length ? state.analysis : { error: "Không phân tích được đề, tiếp tục giải trực tiếp." } };
+        const r = yield* analyze(text, true);
+        state.analysis = r.analysis;
+        tests = r.tests;
+        yield { type: "tool_result", id: "analyze", name: "analyze_problem", output: Object.keys(r.analysis).length
+          ? { ...r.analysis, tests_found: tests.length } : { error: "Không phân tích được đề, tiếp tục giải trực tiếp." } };
+      } else {
+        yield { type: "tool_start", id: "extract", name: "extract_tests" };
+        tests = yield* extractTests(text);
+        yield { type: "tool_result", id: "extract", name: "extract_tests", output: { tests, reused: !tests.length && !!(state.tests || []).length } };
+        if (cfg.analyze) {
+          yield { type: "tool_start", id: "analyze", name: "analyze_problem" };
+          state.analysis = (yield* analyze(text, false)).analysis;
+          yield { type: "tool_result", id: "analyze", name: "analyze_problem",
+            output: Object.keys(state.analysis).length ? state.analysis : { error: "Không phân tích được đề, tiếp tục giải trực tiếp." } };
+        }
       }
+      if (tests.length) state.tests = tests;
       const entries = knowledge.retrieve(text, state.analysis.topics, cfg.kb);
       state.kb = entries.map((e) => e.id);
       if (entries.length) {
@@ -403,7 +453,7 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite }) {
 
     let fixesLeft = cfg.fixRounds, rethinksLeft = cfg.rethink ? 1 : 0, fixesDone = 0;
     for (let round = 0; ; round++) {
-      const reply = yield* streamReply(system, messages, think, signal);
+      const reply = yield* streamReply(system, messages);
       messages.push({ role: "assistant", content: reply });
       const code = lastCodeBlock(reply, CODE_LANGS);
       if (!code) {
@@ -411,11 +461,15 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite }) {
           yield { type: "notice", text: "AI kiểm tra lại và cho rằng lời giải trâu sai; giữ code đã qua test mẫu." };
           return;
         }
-        if (!fixesLeft || (round === 0 && !lastLooped)) return;
+        // A plain explanation (e.g. a follow-up question) needs no code; an empty or cut-off reply does.
+        if (!fixesLeft || (round === 0 && !lastLooped && reply.trim())) {
+          if (!reply.trim()) yield { type: "error", message: "AI không đưa ra câu trả lời. Hãy thử gửi lại." };
+          return;
+        }
         fixesLeft--;
         messages.push({ role: "user", content: "Câu trả lời vừa rồi không có code hoàn chỉnh. Hãy viết lại ngắn gọn: ý tưởng trong vài câu, "
           + "rồi TOÀN BỘ code trong đúng một code block." });
-        yield { type: "notice", text: "AI chưa đưa ra code hoàn chỉnh, đang yêu cầu viết lại…" };
+        yield { type: "notice", text: "AI chưa đưa ra code hoàn chỉnh, đang yêu cầu viết lại." };
         continue;
       }
       if (analysis.format === "interactive") {
@@ -436,59 +490,75 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite }) {
         else { feedback = failureFeedback(result, tests, analysis); verdict = result.verdict; }
       }
       if (feedback === null && doStress) {
-        const result = yield* stress(state, lang, source, timeLimit, `stress${round}`, signal);
+        const result = yield* stress(state, lang, source, timeLimit, `stress${round}`);
         if (result && (result.result === "ALL_PASSED" || result.result === "BUDGET_EXHAUSTED")) {
           passed.push(`${result.iterations_passed} test ngẫu nhiên so với lời giải trâu`);
         } else if (result) { feedback = stressFeedback(result); verdict = result.result; }
       }
       if (feedback === null) {
-        yield { type: "notice", text: passed.length ? `✅ Code đã qua ${passed.join(" và ")}.` : "Không chạy được kiểm tra nào cho code này." };
+        yield { type: "notice", kind: "success", text: passed.length ? `Code đã qua ${passed.join(" và ")}.` : "Không chạy được kiểm tra nào cho code này." };
         return;
       }
       if (fixesLeft === 0) {
         if (rethinksLeft === 0) {
-          yield { type: "error", message: "Đã tự sửa nhiều lần nhưng vẫn chưa đúng. Hãy thử bật 'Suy nghĩ', đổi model lớn hơn, hoặc gợi ý thêm cho AI." };
+          yield { type: "error", message: "Đã tự sửa nhiều lần nhưng vẫn chưa đúng. Hãy thử mức suy nghĩ Tối đa, đổi model, hoặc gợi ý thêm cho AI." };
           return;
         }
         rethinksLeft--;
         fixesLeft = cfg.fixRounds - 1;
         messages.push({ role: "user", content: feedback + "\n\nĐã sửa nhiều lần mà vẫn sai. Hãy BỎ hướng làm hiện tại và nghĩ lại từ đầu: "
           + "liệt kê lại các quan sát, chọn một thuật toán KHÁC, kiểm tra bằng tay trên test mẫu rồi mới viết lại TOÀN BỘ code." });
-        yield { type: "notice", text: "🧠 Các cách sửa chưa hiệu quả, AI đang nghĩ lại từ đầu với hướng khác…" };
+        yield { type: "notice", text: "Các cách sửa chưa hiệu quả, AI đang nghĩ lại từ đầu với hướng khác." };
         continue;
       }
       fixesLeft--;
       fixesDone++;
       messages.push({ role: "user", content: feedback });
-      yield { type: "notice", text: `🔧 Code chưa đúng (${verdict}), AI đang tự sửa (lần ${fixesDone})…` };
+      yield { type: "notice", text: `Code chưa đúng (${verdict}), AI đang tự sửa (lần ${fixesDone}).` };
+    }
+  }
+
+  /** Build a page, run it in a hidden frame, and let the model fix runtime errors. */
+  async function* buildSite(conv, system) {
+    for (let round = 0; ; round++) {
+      const reply = yield* streamReply(system, conv.messages);
+      conv.messages.push({ role: "assistant", content: reply });
+      const page = lastCodeBlock(reply, { html: "html" });
+      if (!page) return;
+      const id = `site${round}`;
+      yield { type: "tool_start", id, name: "save_web_files" };
+      yield { type: "tool_call", id, name: "save_web_files", input: { files: [{ path: "index.html" }] } };
+      const url = saveSite(conv, page[1]);
+      const errors = checkSite ? await checkSite(page[1]) : [];
+      yield { type: "tool_result", id, name: "save_web_files",
+        output: { saved: ["index.html"], all_files: ["index.html"], preview_url: url, errors } };
+      if (!errors.length || round >= WEB_FIX_ROUNDS) return;
+      conv.messages.push({ role: "user", content: prompts.web_errors.replace("{errors}", errors.map((e) => `- ${e}`).join("\n")) });
+      yield { type: "notice", text: `Trang có ${errors.length} lỗi khi chạy, AI đang tự sửa (lần ${round + 1}).` };
     }
   }
 
   /** One user turn; `conv.messages` already ends with the user message. */
-  async function* runTurn(conv, { mode = "cp", think = false, effort = "deep", signal } = {}) {
+  async function* runTurn(conv, { mode = "cp", model, think = false, effort = "deep", signal } = {}) {
+    ctx = { model, strong: !!(llm.isStrong && llm.isStrong(model)), effort, think, signal };
     if (mode === "cp") {
-      yield* solveProblem(conv, think, effort, signal);
+      yield* solveProblem(conv);
       return;
     }
     let system = prompts.system[mode];
-    if (mode === "chat") {
-      const entries = knowledge.retrieve(conv.messages[conv.messages.length - 1].content, [], 2, 3);
-      if (entries.length) {
-        system += "\n\n" + knowledgePrompt(entries);
-        yield { type: "tool_start", id: "kb", name: "knowledge" };
-        yield { type: "tool_result", id: "kb", name: "knowledge", output: { topics: entries.map((e) => ({ id: e.id, title: e.title })) } };
-      }
+    const entries = knowledge.retrieve(conv.messages[conv.messages.length - 1].content, [], 2, mode === "web" ? 2 : 3,
+      mode === "web" ? "web" : "cp");
+    if (entries.length) {
+      system += "\n\n" + knowledgePrompt(entries);
+      yield { type: "tool_start", id: "kb", name: "knowledge" };
+      yield { type: "tool_result", id: "kb", name: "knowledge", output: { topics: entries.map((e) => ({ id: e.id, title: e.title })) } };
     }
-    const reply = yield* streamReply(system, conv.messages, think, signal);
-    conv.messages.push({ role: "assistant", content: reply });
     if (mode === "web") {
-      const page = lastCodeBlock(reply, { html: "html" });
-      if (!page) return;
-      yield { type: "tool_start", id: "site", name: "save_web_files" };
-      yield { type: "tool_call", id: "site", name: "save_web_files", input: { files: [{ path: "index.html" }] } };
-      yield { type: "tool_result", id: "site", name: "save_web_files",
-        output: { saved: ["index.html"], all_files: ["index.html"], preview_url: saveSite(conv, page[1]) } };
+      yield* buildSite(conv, system);
+      return;
     }
+    const reply = yield* streamReply(system, conv.messages);
+    conv.messages.push({ role: "assistant", content: reply });
   }
 
   return { runTurn };

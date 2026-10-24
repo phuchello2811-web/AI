@@ -200,9 +200,9 @@ def stress_test(generator_code: str, solution: dict, brute: dict, iterations: in
                 return {"result": "GENERATOR_FAILED", "seed": seed, "stderr": _truncate(gen["stderr"])}
             test_input = gen["stdout"]
             ref = progs["brute"].run(test_input, time_limit * 5)
-            if ref["status"] != "OK":
+            if ref["status"] != "OK" or not ref["stdout"].strip():
                 return {"result": "BRUTE_FAILED", "seed": seed, "input": _truncate(test_input),
-                        "status": ref["status"], "stderr": _truncate(ref["stderr"])}
+                        "status": ref["status"], "stderr": _truncate(ref["stderr"] or "brute force printed nothing")}
             got = progs["solution"].run(test_input, time_limit)
             if got["status"] != "OK" or not outputs_match(got["stdout"], ref["stdout"]):
                 return {"result": "MISMATCH" if got["status"] == "OK" else got["status"], "seed": seed,

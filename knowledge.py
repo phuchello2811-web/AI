@@ -15,7 +15,8 @@ from pathlib import Path
 # The same file is used by the in-browser version (static/browser/agent.js).
 ENTRIES = json.loads((Path(__file__).resolve().parent / "static" / "knowledge.json").read_text(encoding="utf-8"))
 BY_ID = {e["id"]: e for e in ENTRIES}
-TOPIC_IDS = [e["id"] for e in ENTRIES]
+# Entries with "kind": "web" are front-end knowledge; the rest are contest techniques.
+TOPIC_IDS = [e["id"] for e in ENTRIES if e.get("kind", "cp") == "cp"]
 
 
 def normalize(text: str) -> str:
@@ -97,12 +98,15 @@ def _key_re(key: str) -> re.Pattern:
 _KEY_RES = {e["id"]: [(len(k.split()), _key_re(k)) for k in e["keys"]] for e in ENTRIES}
 
 
-def retrieve(text: str, topics: list[str] | None = None, k: int = 3, min_score: float = 2.0) -> list[dict]:
-    """Rank entries by keyword hits in `text`; ids in `topics` (chosen by the model) get a large bonus."""
+def retrieve(text: str, topics: list[str] | None = None, k: int = 3, min_score: float = 2.0,
+             kind: str = "cp") -> list[dict]:
+    """Rank entries of `kind` by keyword hits in `text`; ids in `topics` (chosen by the model) get a large bonus."""
     norm = normalize(text)
-    chosen = set(topics or []) | set(_bound_topics(text))
+    chosen = set(topics or []) | (set(_bound_topics(text)) if kind == "cp" else set())
     scored = []
     for e in ENTRIES:
+        if e.get("kind", "cp") != kind:
+            continue
         score = sum(weight for weight, rx in _KEY_RES[e["id"]] if rx.search(norm))
         if e["id"] in chosen:
             score += 6

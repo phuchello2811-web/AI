@@ -133,8 +133,9 @@ export async function stressTest(generatorCode, solution, brute, iterations = 15
     if (gen.status !== "OK") return { result: "GENERATOR_FAILED", seed, stderr: truncate(gen.stderr) };
     const input = gen.stdout;
     const ref = await execute(progs.brute, input, timeLimit * 5);
-    if (ref.status !== "OK") {
-      return { result: "BRUTE_FAILED", seed, input: truncate(input), status: ref.status, stderr: truncate(ref.stderr) };
+    if (ref.status !== "OK" || !ref.stdout.trim()) {
+      return { result: "BRUTE_FAILED", seed, input: truncate(input), status: ref.status,
+               stderr: truncate(ref.stderr || "lời giải trâu không in ra gì") };
     }
     const got = await execute(progs.solution, input, timeLimit);
     if (got.status !== "OK" || !outputsMatch(got.stdout, ref.stdout)) {
@@ -145,4 +146,10 @@ export async function stressTest(generatorCode, solution, brute, iterations = 15
     }
   }
   return { result: "ALL_PASSED", iterations_passed: iterations };
+}
+
+/** Fetch and start the compiler and Pyodide ahead of time (both are cached by the browser afterwards). */
+export async function warmup() {
+  await runTests("cpp", "int main() { return 0; }", [{ input: "" }], 2);
+  await runTests("python", "pass", [{ input: "" }], 2);
 }

@@ -1,8 +1,8 @@
 // The whole app inside the browser: answers the same /api/... requests as server.py, with
-// conversations stored in IndexedDB, the model running on WebGPU (llm.js) and code judged in
-// WebAssembly (judge.js). Used on GitHub Pages and whenever no local server is running.
+// conversations stored in IndexedDB, the model in the free cloud or on WebGPU (models.js) and code
+// judged in WebAssembly (judge.js). Used on GitHub Pages and whenever no local server is running.
 
-import * as llm from "./llm.js";
+import * as llm from "./models.js";
 import * as judge from "./judge.js";
 import { createAgent, createKnowledge, EFFORTS } from "./agent.js";
 
@@ -34,14 +34,48 @@ const putConv = (conv) => tx("readwrite", (s) => s.put({ ...conv, updated: Date.
 
 const siteUrls = new Map(); // conversation id -> blob: URL of its generated page
 
+// Generated pages run in a sandbox without our origin (so they cannot read this app's data); there
+// localStorage throws. This stand-in keeps such pages working, in memory, only when the real one is blocked.
+const STORAGE_SHIM = `<script>(function(){try{localStorage.length;return}catch(e){}function S(){var d={};return{`
+  + `getItem:function(k){return Object.prototype.hasOwnProperty.call(d,k)?d[k]:null},setItem:function(k,v){d[k]=String(v)},`
+  + `removeItem:function(k){delete d[k]},clear:function(){d={}},key:function(i){return Object.keys(d)[i]||null},`
+  + `get length(){return Object.keys(d).length}}}try{Object.defineProperty(window,"localStorage",{value:S(),configurable:true});`
+  + `Object.defineProperty(window,"sessionStorage",{value:S(),configurable:true})}catch(e){}})();<\/script>`;
+
+/** Insert `code` at the start of <head> (or of the document). */
+function inject(html, code) {
+  return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + code) : code + html;
+}
+
 function siteUrl(conv) {
   if (!conv.site) return null;
-  if (!siteUrls.has(conv.id)) siteUrls.set(conv.id, URL.createObjectURL(new Blob([conv.site], { type: "text/html;charset=utf-8" })));
+  if (!siteUrls.has(conv.id)) siteUrls.set(conv.id, URL.createObjectURL(new Blob([inject(conv.site, STORAGE_SHIM)], { type: "text/html;charset=utf-8" })));
   return siteUrls.get(conv.id);
 }
 
+/** Run a generated page in a hidden sandboxed frame for a few seconds and collect its runtime errors. */
+function checkSite(html) {
+  const token = crypto.randomUUID();
+  const probe = `<script>(function(){var E=[];function r(m){m=String(m).slice(0,300);if(E.indexOf(m)<0&&E.length<8){E.push(m);parent.postMessage({cmProbe:"${token}",errors:E},"*");}}`
+    + `addEventListener("error",function(e){var t=e.target;if(t&&t!==window&&(t.src||t.href)){r("Không tải được: "+(t.src||t.href));}else{r((e.message||"Lỗi")+(e.lineno?" (dòng "+e.lineno+")":""));}},true);`
+    + `addEventListener("unhandledrejection",function(e){r("Promise bị từ chối: "+((e.reason&&e.reason.message)||e.reason));});`
+    + `var ce=console.error;console.error=function(){r([].map.call(arguments,String).join(" "));ce.apply(console,arguments);};})();<\/script>`;
+  const doc = inject(html, probe + STORAGE_SHIM);
+  return new Promise((resolve) => {
+    let errors = [];
+    const frame = document.createElement("iframe");
+    frame.setAttribute("sandbox", "allow-scripts");
+    frame.style.cssText = "position:fixed;left:-10000px;top:0;width:1280px;height:800px;border:0;visibility:hidden";
+    const onMessage = (e) => { if (e.data && e.data.cmProbe === token) errors = e.data.errors; };
+    addEventListener("message", onMessage);
+    frame.srcdoc = doc;
+    document.body.appendChild(frame);
+    setTimeout(() => { removeEventListener("message", onMessage); frame.remove(); resolve(errors); }, 3500);
+  });
+}
+
 const agent = createAgent({
-  llm, judge, knowledge, prompts,
+  llm, judge, knowledge, prompts, checkSite,
   saveSite(conv, html) {
     conv.site = html;
     if (siteUrls.has(conv.id)) URL.revokeObjectURL(siteUrls.get(conv.id));
@@ -87,12 +121,16 @@ export async function request(path, { method = "GET", body } = {}) {
 }
 
 async function health() {
-  const gpu = await llm.probeGPU();
-  const models = gpu ? await Promise.all(llm.MODELS.map(async (m) => ({
-    name: m.name, label: `${m.label} (${m.size})`, cached: await llm.isCached(m.name),
-    capabilities: m.thinking ? ["completion", "thinking"] : ["completion"],
-  }))) : [];
-  return { browser: true, webgpu: !!gpu, ollama: !!gpu, models, languages: judge.LANGUAGES };
+  const gpu = await llm.hasWebGPU();
+  const models = llm.MODELS.filter((m) => m.provider === "cloud" || gpu).map((m) => ({
+    name: m.name, label: m.label, provider: m.provider, capabilities: ["completion"],
+  }));
+  return { browser: true, webgpu: gpu, ollama: true, models, languages: judge.LANGUAGES };
+}
+
+/** Download and start the C++ compiler and Python in the background, so the first judge run is instant. */
+export function warmup() {
+  return judge.warmup();
 }
 
 /** One chat turn as an async stream of UI events (the SSE events of server.py's /api/chat). */
@@ -107,10 +145,11 @@ export async function* chat(body, signal) {
   yield { type: "title", title: conv.title };
   await putConv(conv);
 
-  const record = (ev) => { if (ev.type !== "tool_status") conv.events.push(ev); return ev; };
+  // Live progress (status, tool_status) is shown but not stored.
+  const record = (ev) => { if (ev.type !== "tool_status" && ev.type !== "status") conv.events.push(ev); return ev; };
   try {
-    yield* loadModel(body.model, record);
-    for await (const ev of agent.runTurn(conv, { mode: body.mode, think: body.think, effort: body.effort, signal })) {
+    if (!llm.MODELS.some((m) => m.name === body.model)) fail(`Không có model ${body.model}`);
+    for await (const ev of agent.runTurn(conv, { mode: body.mode, model: body.model, think: body.think, effort: body.effort, signal })) {
       if (signal && signal.aborted) break;
       yield record(ev);
     }
@@ -121,31 +160,6 @@ export async function* chat(body, signal) {
     await putConv(conv);
   }
   yield { type: "done" };
-}
-
-/** Load the chosen model, showing download progress on a tool card the first time. */
-async function* loadModel(name, record) {
-  const info = llm.MODELS.find((m) => m.name === name) || fail(`Không có model ${name}`);
-  let latest = null, wake = null, done = false, error = null;
-  const started = llm.load(name, (text, fraction) => { latest = { text, fraction }; if (wake) wake(); })
-    .then(() => { done = true; }, (e) => { error = e; done = true; })
-    .finally(() => wake && wake());
-  let card = false;
-  while (!done) {
-    await new Promise((r) => { wake = r; setTimeout(r, 400); });
-    wake = null;
-    if (!latest || done) continue;
-    if (!card) {
-      card = true;
-      yield record({ type: "tool_start", id: "model", name: "load_model" });
-    }
-    const pct = Math.round((latest.fraction || 0) * 100);
-    yield { type: "tool_status", id: "model", text: `${info.label} ${info.size} · ${pct}% (chỉ tải lần đầu)` };
-    latest = null;
-  }
-  await started;
-  if (error) throw error;
-  if (card) yield record({ type: "tool_result", id: "model", name: "load_model", output: { model: info.label } });
 }
 
 export function stop() {

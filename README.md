@@ -1,19 +1,21 @@
-# CodeMaster — AI giải bài tin & build web, miễn phí, không cần cài
+<p align="center"><img src="static/logo.svg" width="72" alt="CodeMaster"></p>
 
-### 👉 Dùng ngay: **https://phuchello2811-web.github.io/AI/**
+# CodeMaster — AI giải bài lập trình thi đấu và làm web
 
-Mở link bằng Chrome hoặc Edge trên máy tính là dùng được: **không cần cài gì, không cần tài khoản, miễn phí, không giới hạn tin nhắn**. Model mã nguồn mở (Qwen3.5, Qwen2.5-Coder) chạy ngay trong trình duyệt bằng GPU của máy bạn ([WebLLM](https://github.com/mlc-ai/web-llm)), code C++ được biên dịch và chấm cũng ngay trong trình duyệt ([Clang WebAssembly](https://github.com/YoWASP/clang), [Pyodide](https://pyodide.org) cho Python). Không có server nào phải trả tiền, dữ liệu không rời khỏi máy.
+**Dùng ngay: https://phuchello2811-web.github.io/AI/** — mở link là dùng, không cần cài, không cần tài khoản, miễn phí.
 
-- Lần đầu: trình duyệt tải model (2–6 GB tuỳ model) và trình biên dịch C++ (~105 MB), sau đó được lưu lại.
-- Cần trình duyệt có WebGPU: Chrome/Edge 113+ trên Windows, macOS, ChromeOS; Safari 26+. Máy yếu chọn **Qwen3.5 2B**; máy có GPU tốt (≥ 8 GB) chọn **Qwen3.5 9B** để mạnh nhất.
-- Muốn chạy model lớn hơn qua [Ollama](https://ollama.com) thì xem phần *Chạy bằng Ollama* bên dưới.
+- **Dùng ngay, không phải chờ tải:** mặc định dùng model mã nguồn mở **GPT-OSS 20B** (OpenAI) chạy miễn phí trên máy chủ của [Pollinations.ai](https://pollinations.ai). Đây là model suy luận, mạnh ở toán và lập trình thi đấu; ở mức "Tối đa" nó suy luận sâu hơn cho bài khó.
+- **Gói miễn phí trả lời tối đa 1 lần mỗi 30 giây** cho mỗi người dùng. CodeMaster gộp các bước để mỗi bài chỉ cần 2–3 lần gọi, tự xếp hàng và tự thử lại. Ai có khoá Pollinations riêng có thể nhập trong *Cài đặt* để bỏ thời gian chờ.
+- **Không giới hạn, chạy cả khi mất mạng:** chọn model *trong trình duyệt* (Qwen3.5 2B/4B/9B, Qwen2.5 Coder 7B) chạy bằng GPU của máy bạn qua [WebLLM](https://github.com/mlc-ai/web-llm); lần đầu tải 2–6 GB. Khi máy chủ miễn phí không phản hồi, CodeMaster tự chuyển sang model này.
+- **Chấm code ngay trong trình duyệt:** C/C++ biên dịch bằng [Clang WebAssembly](https://github.com/YoWASP/clang), Python chạy bằng [Pyodide](https://pyodide.org). Trình biên dịch được tải sẵn ngầm khi mở trang nên lúc chấm không phải chờ.
+- Lịch sử trò chuyện lưu trong trình duyệt của bạn.
 
 ## Cách nó làm việc
 
-**🏆 Giải bài tin** (VOI, IOI, Google Code Jam / Kick Start…)
+**Giải bài tin** (VOI, IOI, Google Code Jam / Kick Start, Codeforces…)
 1. Đọc đề và lấy các test ví dụ (bỏ test nào không có trong đề, để tránh test bịa).
 2. **Phân tích đề**: định dạng (stdin, file `.INP/.OUT`, `Case #x:` của Code Jam, tương tác, cài hàm cho grader IOI), giới hạn thời gian, độ phức tạp mục tiêu suy ra từ giới hạn n, quan sát chính, trường hợp biên.
-3. **Tra thư viện thuật toán** (45 chủ đề: DP và các tối ưu DP, đồ thị, cấu trúc dữ liệu, xâu, toán, hình học, chiến thuật IOI/Code Jam…) và đưa các mục liên quan vào prompt.
+3. **Tra thư viện kiến thức** (68 chủ đề: DP và các tối ưu DP, đồ thị, luồng, cấu trúc dữ liệu kể cả persistent/treap/Li Chao, xâu kể cả suffix automaton, toán số học và tổ hợp nâng cao, hình học, chiến thuật IOI/Code Jam, và 9 chủ đề làm web) và đưa các mục liên quan vào prompt.
 4. Model giải theo **quy trình tư duy cố định**: chốt độ phức tạp, thử tay, cân nhắc ít nhất hai hướng, tìm phản ví dụ cho tham lam, liệt kê trường hợp biên, trace code trên test mẫu.
 5. Biên dịch và chấm trên test mẫu (AC / WA / TLE / RE / CE).
 6. **Stress test** (mức Tối đa): AI viết lời giải trâu và bộ sinh test nhỏ, rồi so sánh 150 test ngẫu nhiên, bắt được lỗi mà test mẫu bỏ sót.
@@ -21,15 +23,15 @@ Mở link bằng Chrome hoặc Edge trên máy tính là dùng được: **khôn
 
 | Mức suy nghĩ | Gồm |
 |---|---|
-| ⚡ Nhanh | Tra kiến thức + giải + chấm mẫu, sửa 2 lần |
-| 🧭 Kỹ (mặc định) | + phân tích đề, sửa 3 lần |
-| 🧠 Tối đa | + stress test với lời giải trâu, + nghĩ lại từ đầu khi bế tắc |
+| Nhanh | Tra kiến thức + giải + chấm mẫu, sửa 2 lần |
+| Kỹ (mặc định) | + phân tích đề, sửa 3 lần |
+| Tối đa | + stress test với lời giải trâu, + nghĩ lại từ đầu khi bế tắc |
 
-Tab **📚 Thư viện** trong giao diện cho xem và tìm toàn bộ kiến thức này.
+Tab **Thư viện** trong giao diện cho xem và tìm toàn bộ kiến thức này.
 
-**🌐 Build web**: model viết một file HTML hoàn chỉnh, hiện bản xem trước ngay bên phải.
+**Làm web**: AI viết một trang HTML hoàn chỉnh theo hệ thống thiết kế (màu, chữ, khoảng cách, responsive, truy cập được), chạy thử trang trong khung ẩn để bắt lỗi JavaScript và tự sửa, rồi hiện bản xem trước bên phải.
 
-**💬 Hỏi đáp**: giải thích thuật toán, debug, trả lời câu hỏi lập trình.
+**Hỏi đáp**: giải thích thuật toán, debug, trả lời câu hỏi lập trình.
 
 ## Chạy bằng Ollama (tuỳ chọn)
 

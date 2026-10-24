@@ -1,4 +1,8 @@
-"""Web server: chat API (Server-Sent Events), code judge API, site previews, and the UI."""
+"""Web server: chat API (Server-Sent Events), code judge API, site previews, and the UI.
+
+The UI is served here at "/", and can also be opened from VS Code's Live Server ("Go Live",
+port 5500), in which case it calls this API cross-origin; CORS allows only local origins.
+"""
 
 import json
 import os
@@ -10,11 +14,13 @@ from pathlib import Path
 import httpx
 import ollama
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import agent
+import knowledge
 import sandbox
 
 ROOT = Path(__file__).resolve().parent
@@ -36,6 +42,10 @@ def load_dotenv(path: Path):
 load_dotenv(ROOT / ".env")
 
 app = FastAPI(title="CodeMaster")
+# Live Server ("Go Live") uses port 5500 and moves up when it is busy.
+app.add_middleware(CORSMiddleware, allow_methods=["*"], allow_headers=["*"],
+                   allow_origin_regex=os.environ.get("CORS_ORIGIN_REGEX",
+                                                     r"http://(127\.0\.0\.1|localhost):55\d\d"))
 client = ollama.Client(host=os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434"))
 _locks: dict[str, threading.Lock] = {}
 
@@ -129,6 +139,7 @@ class ChatIn(BaseModel):
     mode: str = "cp"
     model: str
     think: bool = True
+    effort: str = "deep"
 
 
 def sse(event: dict) -> str:
@@ -140,6 +151,8 @@ def chat(body: ChatIn):
     conv = load_conv(body.conversation_id)
     if body.mode not in agent.SYSTEM_PROMPTS:
         raise HTTPException(400, "bad mode")
+    if body.effort not in agent.EFFORTS:
+        raise HTTPException(400, "bad effort")
     try:
         caps = agent.model_capabilities(client, body.model)
     except (httpx.HTTPError, ConnectionError):
@@ -165,7 +178,7 @@ def chat(body: ChatIn):
         try:
             yield sse({"type": "title", "title": conv["title"]})
             for event in agent.run_turn(client, conv["id"], conv["messages"], conv["state"],
-                                        body.mode, body.model, body.think):
+                                        body.mode, body.model, body.think, body.effort):
                 conv["events"].append(event)
                 yield sse(event)
         except (httpx.HTTPError, ConnectionError):
@@ -184,6 +197,13 @@ def chat(body: ChatIn):
 
     return StreamingResponse(stream(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+# ---------- knowledge library ----------
+
+@app.get("/api/knowledge")
+def knowledge_entries():
+    return [{"id": e["id"], "title": e["title"], "body": e["body"]} for e in knowledge.ENTRIES]
 
 
 # ---------- judge (used by the editor panel) ----------
@@ -218,7 +238,7 @@ app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 
 @app.get("/")
 def index():
-    return FileResponse(ROOT / "static" / "index.html")
+    return FileResponse(ROOT / "index.html")
 
 
 if __name__ == "__main__":

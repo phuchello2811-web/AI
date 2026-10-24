@@ -1,18 +1,23 @@
 """Compile and run contestant code locally, judge it against tests, stress-test it.
 
 This is a convenience sandbox, not a security boundary: code runs as the current
-user in a temp directory with CPU-time, file-size and wall-clock limits only.
+user in a temp directory with CPU-time, file-size and wall-clock limits only
+(only the wall-clock limit on Windows, which has no `resource` module).
 """
 
 import os
 import re
-import resource
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
+
+try:
+    import resource
+except ImportError:  # Windows
+    resource = None
 
 ROOT = Path(__file__).resolve().parent
 # Apple clang ships no <bits/stdc++.h>; this folder provides one.
@@ -59,6 +64,9 @@ def _truncate(text: str, limit: int = MAX_OUTPUT_CHARS) -> str:
 
 
 def _limits(cpu_seconds: int):
+    if resource is None:
+        return None
+
     def apply():
         resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds + 1))
         resource.setrlimit(resource.RLIMIT_FSIZE, (64 << 20, 64 << 20))
@@ -100,7 +108,7 @@ class Program:
             return True
         try:
             proc = subprocess.run(self.spec["compile"], cwd=self.dir, capture_output=True,
-                                  text=True, timeout=COMPILE_TIMEOUT)
+                                  text=True, encoding="utf-8", errors="replace", timeout=COMPILE_TIMEOUT)
         except subprocess.TimeoutExpired:
             self.compile_error = "Compilation timed out"
             return False
@@ -109,6 +117,12 @@ class Program:
             return False
         return True
 
+    def _command(self) -> list[str]:
+        if self.spec["run"] == ["./main"]:
+            # Absolute path: Windows does not look up programs in the child's cwd, and g++ adds ".exe" there.
+            return [str(self.dir / ("main.exe" if os.name == "nt" else "main"))]
+        return self.spec["run"]
+
     def run(self, stdin: str, time_limit: float, args: list[str] | None = None) -> dict:
         if self.input_file:
             (self.dir / self.input_file).write_text(stdin, encoding="utf-8")
@@ -116,9 +130,9 @@ class Program:
             (self.dir / self.output_file).unlink(missing_ok=True)
         start = time.perf_counter()
         try:
-            proc = subprocess.run(self.spec["run"] + (args or []), cwd=self.dir, input=stdin,
-                                  capture_output=True, text=True, timeout=time_limit * 2 + 1,
-                                  preexec_fn=_limits(int(time_limit) + 1))
+            proc = subprocess.run(self._command() + (args or []), cwd=self.dir, input=stdin,
+                                  capture_output=True, text=True, encoding="utf-8", errors="replace",
+                                  timeout=time_limit * 2 + 1, preexec_fn=_limits(int(time_limit) + 1))
         except subprocess.TimeoutExpired:
             return {"status": "TLE", "time": round(time.perf_counter() - start, 3), "stdout": "", "stderr": ""}
         elapsed = time.perf_counter() - start

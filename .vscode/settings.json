@@ -1,0 +1,11 @@
+{
+  // Go Live serves index.html at http://127.0.0.1:5500; the page then talks to server.py on port 8000.
+  "liveServer.settings.port": 5500,
+  "liveServer.settings.root": "/",
+  "liveServer.settings.host": "127.0.0.1",
+  // The server writes chat history and generated sites while the AI answers; reloading the page then
+  // would cut the answer off.
+  "liveServer.settings.ignoreFiles": [
+    ".vscode/**", ".venv/**", "data/**", "workspace/**", "cpp_shim/**", "**/__pycache__/**", "**/*.py", "**/*.sh"
+  ]
+}

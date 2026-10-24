@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
-<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="static/style.css">
 </head>
 <body>
 <div class="app">
@@ -35,13 +35,25 @@
       <div class="head-actions">
         <button class="btn ghost" id="openJudge">⚖️<span class="label"> Trình chấm</span></button>
         <button class="btn ghost" id="openPreview">🌐<span class="label"> Website</span></button>
+        <button class="btn ghost" id="openLibrary">📚<span class="label"> Thư viện</span></button>
       </div>
     </header>
+
+    <div class="server-banner hidden" id="serverBanner">
+      <div class="spinner"></div>
+      <div>
+        <b>Đang chờ server CodeMaster…</b>
+        <div>Trang này cần server chạy ở <code id="apiBase">http://127.0.0.1:8000</code>. Trong VS Code: <b>Terminal → Run Task → CodeMaster: server</b> (hoặc gõ <code>./run.sh</code>). Trang sẽ tự kết nối khi server lên.</div>
+      </div>
+    </div>
 
     <div class="messages" id="messages">
       <div class="welcome" id="welcome">
         <h1>Xin chào! Hôm nay code gì?</h1>
-        <p>AI chạy <b>hoàn toàn trên máy bạn</b>: offline, miễn phí. Dán đề bài tin học, AI viết code, tự chạy test mẫu và tự sửa khi sai. Hoặc mô tả website, AI build và hiện bản xem trước ngay.</p>
+        <p>AI chạy <b>hoàn toàn trên máy bạn</b>: offline, miễn phí. Dán đề bài tin học (VOI, IOI, Code Jam…): AI phân tích đề, tra thư viện thuật toán, viết code, tự chấm test mẫu, stress test với lời giải trâu và tự sửa khi sai.</p>
+        <div class="pipeline">
+          <span>📋 Đọc test</span><span>🧭 Phân tích</span><span>📚 Tra kiến thức</span><span>✍️ Giải</span><span>⚙️ Chấm mẫu</span><span>🎲 Stress test</span><span>🔧 Tự sửa</span>
+        </div>
         <div class="starters">
           <button class="starter" data-mode="cp" data-prompt="Cho dãy n số nguyên a1, a2, ..., an (1 ≤ n ≤ 2·10^5, |ai| ≤ 10^9). Hãy tìm đoạn con liên tiếp khác rỗng có tổng lớn nhất.&#10;&#10;Input: Dòng đầu chứa n. Dòng thứ hai chứa n số nguyên.&#10;Output: Một số nguyên là tổng lớn nhất.&#10;&#10;Ví dụ&#10;Input:&#10;5&#10;-2 1 -3 4 -1&#10;Output:&#10;4">
             <span class="s-icon">🏆</span><b>Giải bài tin</b><span>Thuật toán, độ phức tạp, code đã test</span>
@@ -54,6 +66,12 @@
           </button>
           <button class="starter" data-mode="chat" data-prompt="Giải thích thuật toán Segment Tree với lazy propagation: ý tưởng, độ phức tạp, và code mẫu C++.">
             <span class="s-icon">📚</span><b>Học thuật toán</b><span>Giải thích kèm code mẫu</span>
+          </button>
+          <button class="starter" data-mode="cp" data-effort="max" data-prompt="Google Code Jam style. The first line contains T, the number of test cases. Each test case has a line with N (1 ≤ N ≤ 10^5) followed by N integers S1..SN (1 ≤ Si ≤ 10^6), the sides of N dice. A die with k sides shows 1..k. You may arrange some dice into a straight: a sequence of dice showing x, x+1, ..., x+L-1, each die used at most once, starting from 1 (so x = 1). What is the longest straight you can form?&#10;For each test case, output one line Case #x: y.&#10;&#10;Sample&#10;Input:&#10;3&#10;4&#10;6 10 12 8&#10;6&#10;5 4 5 4 4 4&#10;10&#10;10 10 7 6 7 4 4 5 7 4&#10;Output:&#10;Case #1: 4&#10;Case #2: 5&#10;Case #3: 9">
+            <span class="s-icon">🎲</span><b>Code Jam (Tối đa)</b><span>Phân tích + stress test</span>
+          </button>
+          <button class="starter" data-mode="chat" data-prompt="Hướng dẫn chiến thuật làm bài IOI: chia subtask, ăn điểm từng phần, cách viết hàm theo grader, và lấy ví dụ bài IOI 2016 Aliens (Aliens trick).">
+            <span class="s-icon">🥇</span><b>Chiến thuật IOI</b><span>Subtask, grader, Aliens trick</span>
           </button>
         </div>
       </div>
@@ -72,6 +90,11 @@
           <option value="chat">💬 Hỏi đáp</option>
         </select>
         <select id="model" title="Model"></select>
+        <select id="effort" title="Mức suy nghĩ khi giải bài tin">
+          <option value="fast">⚡ Nhanh</option>
+          <option value="deep">🧭 Kỹ</option>
+          <option value="max">🧠 Tối đa</option>
+        </select>
         <label class="toggle" id="thinkWrap" title="Cho AI suy nghĩ trước khi trả lời: đúng hơn nhưng chậm hơn">
           <input type="checkbox" id="think"> Suy nghĩ
         </label>
@@ -86,6 +109,7 @@
     <div class="panel-tabs">
       <button class="tab active" data-tab="judge">⚖️ Trình chấm</button>
       <button class="tab" data-tab="preview">🌐 Website</button>
+      <button class="tab" data-tab="library">📚 Thư viện</button>
       <button class="icon-btn close" id="closePanel" title="Đóng">✕</button>
     </div>
 
@@ -118,6 +142,16 @@
       <pre class="file-view hidden" id="fileView"><code></code></pre>
       <div class="empty-preview" id="emptyPreview">Chưa có website nào trong cuộc trò chuyện này.<br>Hãy nhờ AI “build một trang web…”.</div>
     </div>
+
+    <div class="tab-body hidden" id="tab-library">
+      <div class="library-bar">
+        <input type="search" id="libSearch" placeholder="Tìm kỹ thuật: dp, segment tree, Code Jam, IOI…">
+      </div>
+      <div class="library">
+        <div class="lib-list" id="libList"></div>
+        <article class="lib-view md" id="libView"><p class="muted">Chọn một chủ đề. Đây cũng là kiến thức AI tự tra cứu khi giải bài.</p></article>
+      </div>
+    </div>
   </section>
 </div>
 
@@ -129,6 +163,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
-<script src="/static/app.js"></script>
+<script src="static/app.js"></script>
 </body>
 </html>

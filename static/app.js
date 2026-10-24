@@ -10,11 +10,19 @@ const VERDICT_TEXT = {
   GENERATOR_FAILED: "Generator lỗi", BRUTE_FAILED: "Brute lỗi", ERR: "Lỗi",
 };
 
-const state = { convId: null, controller: null, images: [], previewUrl: null, files: [] };
+// Served by server.py: same origin. Opened from VS Code Live Server ("Go Live", port 55xx): call the
+// server at 127.0.0.1:8000 (override with localStorage "cm.api").
+const API = loadPref("api") || (/^55\d\d$/.test(location.port) ? "http://127.0.0.1:8000" : "");
+const FORMAT_NAMES = {
+  stdin: "stdin/stdout", file_io: "đọc/ghi file", multiple_cases_case_x: "Code Jam · Case #x",
+  interactive: "tương tác", function_grader: "IOI · cài hàm cho grader",
+};
+
+const state = { convId: null, controller: null, images: [], previewUrl: null, files: [], online: false, library: null };
 const els = {
   messages: $("#messages"), welcome: $("#welcome"), input: $("#input"), send: $("#sendBtn"),
   convList: $("#convList"), title: $("#chatTitle"), panel: $("#panel"), usage: $("#usage"),
-  attachments: $("#attachments"), mode: $("#mode"), model: $("#model"), think: $("#think"),
+  attachments: $("#attachments"), mode: $("#mode"), model: $("#model"), think: $("#think"), effort: $("#effort"),
 };
 
 marked.setOptions({ gfm: true, breaks: false });
@@ -22,7 +30,7 @@ marked.setOptions({ gfm: true, breaks: false });
 /* ================= API ================= */
 
 async function api(path, opts = {}) {
-  const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  const res = await fetch(API + path, { headers: { "Content-Type": "application/json" }, ...opts });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.detail || `HTTP ${res.status}`);
@@ -33,6 +41,7 @@ async function api(path, opts = {}) {
 async function refreshStatus() {
   try {
     const h = await api("/api/health");
+    setOnline(true);
     state.models = h.models;
     const saved = loadPref("model");
     els.model.innerHTML = h.models.map((m) => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join("");
@@ -45,6 +54,19 @@ async function refreshStatus() {
         : `<span class="dot" style="background:var(--warn)"></span>Chưa có model — gõ <code>ollama pull qwen3:4b</code>`;
   } catch {
     $("#status").innerHTML = `<span class="dot" style="background:var(--bad)"></span>Mất kết nối server`;
+    setOnline(false);
+  }
+}
+
+// Until the server answers, show the banner and retry every 2 s; then load everything once.
+function setOnline(online) {
+  const wasOnline = state.online;
+  state.online = online;
+  $("#serverBanner").classList.toggle("hidden", online);
+  if (!online) { setTimeout(refreshStatus, 2000); return; }
+  if (!wasOnline) {
+    refreshConversations();
+    if (location.hash.startsWith("#c=") && !state.convId) openConversation(location.hash.slice(3)).catch(() => newChat());
   }
 }
 
@@ -254,10 +276,14 @@ class Turn {
   }
 
   toolCard(id, name) {
-    const titles = { run_code: "⚙️ Chạy thử code", stress_test: "🎲 Stress test", save_web_files: "💾 Lưu website", extract_tests: "📋 Lấy test mẫu từ đề" };
+    const titles = {
+      run_code: "⚙️ Chạy thử code", stress_test: "🎲 Stress test", save_web_files: "💾 Lưu website",
+      extract_tests: "📋 Lấy test mẫu từ đề", analyze_problem: "🧭 Phân tích đề", knowledge: "📚 Tra thư viện thuật toán",
+    };
+    const busy = { extract_tests: "đang đọc đề…", analyze_problem: "đang phân tích…", knowledge: "đang tra…", stress_test: "đang viết lời giải trâu và sinh test…" };
     const el = document.createElement("div");
     el.className = "tool";
-    el.innerHTML = `<div class="tool-head"><div class="spinner"></div><span class="t-name">${titles[name] || esc(name)}</span><span class="t-sum">${name === "extract_tests" ? "đang đọc đề…" : "đang viết…"}</span></div><div class="tool-body"></div>`;
+    el.innerHTML = `<div class="tool-head"><div class="spinner"></div><span class="t-name">${titles[name] || esc(name)}</span><span class="t-sum">${busy[name] || "đang viết…"}</span></div><div class="tool-body"></div>`;
     $(".tool-head", el).onclick = () => el.classList.toggle("open");
     this.body.appendChild(el);
     this.tools[id] = { el, name, chars: 0 };
@@ -303,7 +329,19 @@ class Turn {
       body.insertAdjacentHTML("beforeend", `<pre>${esc(out.error)}</pre>`);
       return;
     }
-    if (ev.name === "extract_tests") {
+    if (ev.name === "analyze_problem") {
+      setBadge("OK", FORMAT_NAMES[out.format] || "Xong");
+      sum.textContent = [out.target_complexity, out.time_limit_seconds ? `TL ${out.time_limit_seconds}s` : ""].filter(Boolean).join(" · ");
+      const list = (title, items) => items && items.length ? `<b>${title}</b><ul>${items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
+      body.innerHTML = `<p>${esc(out.summary)}</p>${list("Quan sát", out.observations)}${list("Trường hợp biên", out.edge_cases)}`
+        + (out.unique_answer === false ? `<p class="muted">Đề chấp nhận nhiều đáp án: bỏ qua stress test so khớp.</p>` : "");
+    } else if (ev.name === "knowledge") {
+      const topics = out.topics || [];
+      setBadge("OK", `${topics.length} chủ đề`);
+      sum.textContent = topics.map((t) => t.title).join(" · ");
+      body.innerHTML = topics.map((t) => `<button class="btn ghost small" data-topic="${esc(t.id)}">📖 ${esc(t.title)}</button>`).join(" ");
+      body.querySelectorAll("[data-topic]").forEach((b) => (b.onclick = () => showLibrary(b.dataset.topic)));
+    } else if (ev.name === "extract_tests") {
       const n = out.tests.length;
       setBadge(n ? "OK" : "TLE", n ? `${n} test` : out.reused ? "dùng test cũ" : "không có");
       sum.textContent = n ? "" : out.reused ? "không thấy test mới, dùng lại test của đề trước" : "đề không có ví dụ input/output";
@@ -413,10 +451,10 @@ async function send(text) {
   state.controller = new AbortController();
   setBusy(true);
   try {
-    const res = await fetch("/api/chat", {
+    const res = await fetch(API + "/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversation_id: state.convId, text, images, mode: els.mode.value, model: els.model.value, think: els.think.checked }),
+      body: JSON.stringify({ conversation_id: state.convId, text, images, mode: els.mode.value, model: els.model.value, think: els.think.checked, effort: els.effort.value }),
       signal: state.controller.signal,
     });
     if (!res.ok) {
@@ -558,6 +596,7 @@ function showTab(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
   $("#tab-judge").classList.toggle("hidden", name !== "judge");
   $("#tab-preview").classList.toggle("hidden", name !== "preview");
+  $("#tab-library").classList.toggle("hidden", name !== "library");
   if (name === "judge") setTimeout(() => editor.refresh(), 0);
 }
 
@@ -577,8 +616,8 @@ async function showPreview(reload) {
   $("#fileView").classList.add("hidden");
   $("#fileSelect").value = "";
   if (has) {
-    $("#previewFrame").src = state.previewUrl + "?t=" + Date.now();
-    $("#openTab").href = state.previewUrl;
+    $("#previewFrame").src = API + state.previewUrl + "?t=" + Date.now();
+    $("#openTab").href = API + state.previewUrl;
   }
 }
 
@@ -595,6 +634,48 @@ $("#fileSelect").onchange = (e) => {
   $("#previewFrame").classList.add("hidden");
   $("#emptyPreview").classList.add("hidden");
 };
+
+/* ================= Knowledge library ================= */
+
+async function showLibrary(topicId) {
+  showTab("library");
+  if (!state.library) {
+    try { state.library = await api("/api/knowledge"); } catch (e) { $("#libList").innerHTML = `<div class="alert error">${esc(e.message)}</div>`; return; }
+  }
+  renderLibraryList();
+  if (topicId) openTopic(topicId);
+}
+
+function fold(s) {
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
+}
+
+function renderLibraryList() {
+  const q = fold($("#libSearch").value.trim());
+  const items = state.library.filter((e) => !q || fold(e.title + " " + e.id + " " + e.body).includes(q));
+  $("#libList").innerHTML = items.map((e) => `<button class="lib-item" data-id="${esc(e.id)}">${esc(e.title)}</button>`).join("")
+    || `<p class="muted">Không có chủ đề phù hợp.</p>`;
+  $("#libList").querySelectorAll(".lib-item").forEach((b) => (b.onclick = () => openTopic(b.dataset.id)));
+}
+
+function openTopic(id) {
+  const e = state.library.find((x) => x.id === id);
+  if (!e) return;
+  $("#libList").querySelectorAll(".lib-item").forEach((b) => b.classList.toggle("active", b.dataset.id === id));
+  const view = $("#libView");
+  renderMarkdown(view, `## ${e.title}\n\n${e.body}`);
+  const ask = document.createElement("button");
+  ask.className = "btn primary small";
+  ask.textContent = "💬 Hỏi AI về chủ đề này";
+  ask.onclick = () => {
+    els.mode.value = "chat";
+    savePref("mode", "chat");
+    els.input.value = `Giải thích kỹ chủ đề "${e.title}": trực giác, chứng minh ngắn, code C++ mẫu, và 3 bài luyện tập tiêu biểu (VOI/IOI/Codeforces/Code Jam) theo độ khó tăng dần.`;
+    autosize();
+    els.input.focus();
+  };
+  view.appendChild(ask);
+}
 
 /* ================= Wiring ================= */
 
@@ -624,6 +705,7 @@ document.querySelectorAll(".starter").forEach((b) => (b.onclick = () => {
   els.input.value = b.dataset.prompt;
   els.mode.value = b.dataset.mode;
   savePref("mode", els.mode.value);
+  if (b.dataset.effort) { els.effort.value = b.dataset.effort; savePref("effort", els.effort.value); }
   autosize();
   els.input.focus();
 }));
@@ -631,8 +713,11 @@ $("#newChat").onclick = newChat;
 $("#toggleSidebar").onclick = () => $("#sidebar").classList.toggle("open");
 $("#openJudge").onclick = () => showTab("judge");
 $("#openPreview").onclick = () => showPreview();
+$("#openLibrary").onclick = () => showLibrary();
+$("#libSearch").oninput = () => state.library && renderLibraryList();
 $("#closePanel").onclick = () => els.panel.classList.add("hidden");
-document.querySelectorAll(".tab").forEach((t) => (t.onclick = () => (t.dataset.tab === "preview" ? showPreview() : showTab("judge"))));
+document.querySelectorAll(".tab").forEach((t) => (t.onclick = () => (
+  t.dataset.tab === "preview" ? showPreview() : t.dataset.tab === "library" ? showLibrary() : showTab("judge"))));
 $("#reloadPreview").onclick = () => showPreview();
 $("#judgeLang").onchange = (e) => editor.setOption("mode", MODES[e.target.value]);
 $("#addTest").onclick = () => { tests.push({ input: "", expected_output: "" }); renderTests(); };
@@ -641,11 +726,12 @@ editor.setOption("extraKeys", { "Ctrl-Enter": runJudge, "Cmd-Enter": runJudge })
 
 els.mode.value = loadPref("mode") || "cp";
 els.think.checked = loadPref("think") === "1";
+els.effort.value = loadPref("effort") || "deep";
+els.effort.onchange = () => savePref("effort", els.effort.value);
 els.mode.onchange = () => savePref("mode", els.mode.value);
 els.model.onchange = () => { savePref("model", els.model.value); updateThinkToggle(); };
 els.think.onchange = () => savePref("think", els.think.checked ? "1" : "0");
 
 renderTests();
+$("#apiBase").textContent = API || location.origin;
 refreshStatus();
-refreshConversations();
-if (location.hash.startsWith("#c=")) openConversation(location.hash.slice(3)).catch(() => newChat());

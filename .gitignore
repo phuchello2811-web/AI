@@ -1,0 +1,9 @@
+# Lịch sử chat và website do AI tạo trên máy mỗi người
+data/
+workspace/
+.env
+
+.venv/
+__pycache__/
+*.pyc
+.DS_Store

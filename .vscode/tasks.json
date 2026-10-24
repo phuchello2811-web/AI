@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // Starts Ollama (if needed) and server.py on port 8000 as soon as this folder is opened, so pressing
+      // "Go Live" is all that is left to do. VS Code asks once whether to allow automatic tasks.
+      "label": "CodeMaster: server",
+      "type": "shell",
+      "command": "./run.sh",
+      "windows": { "command": ".\\run.bat" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "runOptions": { "runOn": "folderOpen", "instanceLimit": 1 },
+      "presentation": { "reveal": "silent", "panel": "dedicated", "clear": true }
+    }
+  ]
+}

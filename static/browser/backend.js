@@ -60,20 +60,21 @@ function siteUrl(conv) {
 }
 
 /** Run a generated page in one hidden sandboxed frame of the given width; collect errors and UI issues. */
-function runInFrame(html, width, label) {
+function runInFrame(html, width, label, interact = false) {
   const token = crypto.randomUUID();
   const probe = `<script>(function(){var E=[];function r(m){m=String(m).slice(0,300);if(E.indexOf(m)<0&&E.length<8){E.push(m);parent.postMessage({cmProbe:"${token}",errors:E},"*");}}`
-    + `addEventListener("error",function(e){var t=e.target;if(t&&t!==window&&(t.src||t.href)){r("Không tải được: "+(t.src||t.href));}else{r((e.message||"Lỗi")+(e.lineno?" (dòng "+e.lineno+")":""));}},true);`
+    + `addEventListener("error",function(e){var t=e.target;if(t&&t!==window&&(t.src||t.href)){r("Không tải được: "+(t.src||t.href));}else{r((e.message||"Lỗi")+(e.lineno?" (dòng "+e.lineno+")":"")+(window.__cmAction?" — khi "+window.__cmAction:""));}},true);`
     + `addEventListener("unhandledrejection",function(e){r("Promise bị từ chối: "+((e.reason&&e.reason.message)||e.reason));});`
     + `var ce=console.error;console.error=function(){r([].map.call(arguments,String).join(" "));ce.apply(console,arguments);};})();<\/script>`;
   // The UI audit runs once the page (and its own scripts) had a moment to lay out.
   const audit = "<script>addEventListener('load',function(){setTimeout(function(){try{(" + uiAudit.toString() + ")("
-    + JSON.stringify(token) + "," + JSON.stringify(label) + ")}catch(e){}},800)});<\/script>";
+    + JSON.stringify(token) + "," + JSON.stringify(label) + "," + interact + ")}catch(e){}},800)});<\/script>";
   const doc = inject(html, probe + STORAGE_SHIM + audit);
   return new Promise((resolve) => {
     let errors = [], ui = [];
     const frame = document.createElement("iframe");
-    frame.setAttribute("sandbox", "allow-scripts");
+    // allow-forms: forms must work to be tested (the audit stops every submission before it can navigate).
+    frame.setAttribute("sandbox", "allow-scripts allow-forms");
     frame.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;height:800px;border:0;visibility:hidden`;
     const onMessage = (e) => {
       if (!e.data) return;
@@ -83,13 +84,14 @@ function runInFrame(html, width, label) {
     addEventListener("message", onMessage);
     frame.srcdoc = doc;
     document.body.appendChild(frame);
-    setTimeout(() => { removeEventListener("message", onMessage); frame.remove(); resolve({ errors, ui }); }, 4000);
+    // Clicking through up to 30 controls takes a few more seconds.
+    setTimeout(() => { removeEventListener("message", onMessage); frame.remove(); resolve({ errors, ui }); }, interact ? 10000 : 4000);
   });
 }
 
 /** Check a generated page on a phone-sized and a desktop-sized screen: runtime errors and measured UI issues. */
 export async function checkSite(html) {
-  const [phone, desktop] = await Promise.all([runInFrame(html, 390, "điện thoại 390px"), runInFrame(html, 1280, "máy tính 1280px")]);
+  const [phone, desktop] = await Promise.all([runInFrame(html, 390, "điện thoại 390px"), runInFrame(html, 1280, "máy tính 1280px", true)]);
   const errors = [...new Set([...phone.errors, ...desktop.errors])];
   const ui = [...phone.ui.map((m) => `[Điện thoại] ${m}`), ...desktop.ui.filter((m) => !phone.ui.includes(m)).map((m) => `[Máy tính] ${m}`)];
   return { errors, ui };

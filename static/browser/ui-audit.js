@@ -1,11 +1,14 @@
 // A UI audit that runs inside a generated page (in a hidden sandboxed frame) and reports measurable design
-// problems back to the page that opened it: horizontal overflow, text that is too small or low-contrast
-// (WCAG ratios), tap targets too small for a finger, images without alt text, unlabeled buttons, and a
-// missing viewport tag. This gives the model "eyes": the issues are fed back so it can fix them.
+// problems back to the page that opened it: horizontal overflow, text that is too small, low-contrast
+// (WCAG ratios) or cut off, tap targets too small for a finger, images without alt text, unlabeled buttons,
+// and a missing viewport tag. With `interact`, it then uses the page like a person would: clicks every
+// button, link and control, flagging the ones that do nothing and forms that would reload the page (errors
+// thrown by clicks are reported by the page's error probe, labelled with the action). This gives the model
+// "eyes" and "hands": the issues are fed back so it can fix them.
 //
 // `uiAudit` is serialised with Function.prototype.toString and injected, so it must be self-contained.
 
-export function uiAudit(token, label) {
+export async function uiAudit(token, label, interact) {
   const issues = [];
   const add = (m) => { if (issues.length < 10 && !issues.includes(m)) issues.push(m); };
   const W = document.documentElement.clientWidth;
@@ -76,16 +79,72 @@ export function uiAudit(token, label) {
     for (const el of document.querySelectorAll("a, button, input, select, textarea, [role=button]")) {
       const cs = getComputedStyle(el);
       if (!visible(el, cs) || cs.position === "fixed" && el.getBoundingClientRect().width === 0) continue;
+      // A checkbox or radio inside its label is tapped through the whole label.
+      if (/^(checkbox|radio)$/.test(el.type) && el.closest("label")) continue;
       const r = el.getBoundingClientRect();
       if (r.width < 32 || r.height < 32) tiny.push(`${describe(el)} ${Math.round(r.width)}×${Math.round(r.height)}px`);
     }
     if (tiny.length) add(`Nút/liên kết quá nhỏ để bấm bằng ngón tay (nên ≥ 44×44px) ở ${tiny.length} chỗ, ví dụ ${tiny.slice(0, 3).join(", ")}.`);
   }
+  const clipped = textEls.filter((el) => {
+    const cs = getComputedStyle(el);
+    if (!visible(el, cs) || cs.textOverflow === "ellipsis" || !/(hidden|clip)/.test(cs.overflow + cs.overflowX + cs.overflowY)) return false;
+    return el.scrollWidth > el.clientWidth + 2 || el.scrollHeight > el.clientHeight + 2;
+  });
+  if (clipped.length) add(`Chữ bị cắt mất trong khung (overflow hidden) ở ${clipped.length} chỗ, ví dụ ${clipped.slice(0, 3).map(describe).join(", ")}.`);
   const noAlt = [...document.images].filter((img) => !img.hasAttribute("alt")).length;
   if (noAlt) add(`${noAlt} ảnh thiếu thuộc tính alt.`);
   const unnamed = [...document.querySelectorAll("button, a[href]")].filter((el) =>
     !(el.textContent || "").trim() && !el.getAttribute("aria-label") && !el.getAttribute("title") && !el.querySelector("img[alt]")).length;
   if (unnamed) add(`${unnamed} nút/liên kết không có chữ hay aria-label (trình đọc màn hình không biết nó làm gì).`);
 
+  if (interact) await useThePage();
   parent.postMessage({ cmAudit: token, label, issues }, "*");
+
+  // Click through the page like a user. Dialog functions are stubbed (the sandbox blocks them) and count as
+  // a reaction; form submissions that nothing prevents are reported, then stopped so the page stays put.
+  async function useThePage() {
+    let reacted = false, errored = false;
+    addEventListener("error", () => { errored = true; }, true);
+    window.alert = () => { reacted = true; };
+    window.confirm = () => { reacted = true; return true; };
+    window.prompt = () => { reacted = true; return "Thử"; };
+    window.open = () => { reacted = true; return null; };
+    const reloads = [];
+    addEventListener("submit", (e) => {
+      if (!e.defaultPrevented) { reloads.push(describe(e.target)); e.preventDefault(); }
+      reacted = true;
+    });
+    // Fill the form fields so submit handlers get plausible data.
+    for (const el of document.querySelectorAll("input, textarea")) {
+      const type = (el.type || "text").toLowerCase();
+      if (el.value || ["hidden", "checkbox", "radio", "file", "submit", "button", "range", "color"].includes(type)) continue;
+      el.value = { email: "ban@example.com", number: el.min || "1", tel: "0912345678", url: "https://example.com", date: "2026-10-25", time: "09:30", password: "Matkhau123!" }[type] || "Thử nghiệm";
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    const targets = [...document.querySelectorAll("button, [role=button], a[href^='#'], input[type=checkbox], input[type=radio], input[type=submit], select, summary, [onclick]")]
+      .filter((el) => !el.disabled && visible(el, getComputedStyle(el))).slice(0, 30);
+    const dead = [];
+    for (const el of targets) {
+      if (!el.isConnected) continue;
+      window.__cmAction = `bấm ${describe(el)}`;
+      reacted = false;
+      errored = false;
+      let changes = 0;
+      const observer = new MutationObserver((list) => { changes += list.length; });
+      observer.observe(document.documentElement, { subtree: true, childList: true, attributes: true, characterData: true });
+      const hash = location.hash, scroll = scrollY;
+      try {
+        if (el.tagName === "SELECT") { el.selectedIndex = (el.selectedIndex + 1) % Math.max(1, el.options.length); el.dispatchEvent(new Event("change", { bubbles: true })); }
+        else el.click();
+      } catch (e) { /* reported by the error probe */ }
+      await new Promise((r) => setTimeout(r, 150));
+      observer.disconnect();
+      // A click that threw is already reported as an error.
+      if (!changes && !reacted && !errored && location.hash === hash && scrollY === scroll && el.tagName !== "SELECT") dead.push(describe(el));
+    }
+    window.__cmAction = "";
+    if (dead.length) add(`Bấm vào nhưng trang không có phản ứng gì ở ${dead.length} chỗ, ví dụ ${dead.slice(0, 4).join(", ")} — kiểm tra lại sự kiện click.`);
+    if (reloads.length) add(`Gửi form làm tải lại cả trang (mất dữ liệu đang nhập) ở ${reloads.slice(0, 2).join(", ")} — cần e.preventDefault() trong sự kiện submit.`);
+  }
 }

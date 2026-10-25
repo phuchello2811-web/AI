@@ -389,7 +389,7 @@ class Turn {
       run_code: ["cpu", "Chạy thử code"], stress_test: ["dice", "Stress test"], save_web_files: ["layout", "Lưu và chạy thử website"],
       extract_tests: ["list", "Lấy test mẫu từ đề"], analyze_problem: ["compass", "Phân tích đề"], knowledge: ["book", "Tra thư viện kiến thức"],
       perf_test: ["zap", "Kiểm tra tốc độ trên test lớn nhất"], compile_check: ["check", "Kiểm tra code biên dịch được"],
-      read_image: ["file", "Đọc chữ trong ảnh"],
+      read_image: ["file", "Đọc chữ trong ảnh"], edge_tests: ["target", "Thử test biên do AI nghĩ ra"],
     };
     const busy = { extract_tests: "đang đọc đề…", analyze_problem: "đang phân tích…", knowledge: "đang tra…",
                    stress_test: "đang viết lời giải trâu và sinh test…", save_web_files: "đang chạy thử trang…" };
@@ -469,6 +469,11 @@ class Turn {
       setBadge(out.result);
       sum.textContent = out.result === "ALL_PASSED" ? `${out.iterations_passed} test ngẫu nhiên đều khớp` : `lệch ở seed ${out.seed ?? "?"}`;
       body.insertAdjacentHTML("beforeend", `<pre>${esc(JSON.stringify(out, null, 2))}</pre>`);
+      if (out.result !== "ALL_PASSED") t.el.classList.add("open");
+    } else if (ev.name === "edge_tests") {
+      setBadge(out.result, out.result === "ALL_PASSED" ? `${out.iterations_passed}/${out.total}` : VERDICT_TEXT[out.result] || out.result);
+      sum.textContent = out.result === "ALL_PASSED" ? `${out.iterations_passed} test biên đều khớp lời giải trâu` : `sai ở test biên ${out.seed ?? "?"}`;
+      body.innerHTML = `<pre>${esc(out.input ? `Input:\n${out.input}\nLời giải trâu:\n${out.expected_output}\nCode:\n${out.solution_output}` : JSON.stringify(out, null, 2))}</pre>`;
       if (out.result !== "ALL_PASSED") t.el.classList.add("open");
     } else if (ev.name === "read_image") {
       const n = (out.text || "").length;

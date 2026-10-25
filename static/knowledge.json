@@ -3004,5 +3004,23 @@
    "habit tracker"
   ],
   "body": "- **Quản lý chi tiêu**: thêm khoản thu/chi (số tiền, danh mục, ngày, ghi chú), tổng theo tháng, biểu đồ theo danh mục, lọc theo khoảng ngày, xuất CSV.\n- **Thời khoá biểu / lịch học**: lưới 7 ngày × tiết, thêm môn với màu, nhắc bài kiểm tra, xem theo tuần.\n- **Quản lý công việc**: danh sách hoặc Kanban, hạn chót (tô đỏ khi quá hạn), ưu tiên, nhãn, tìm kiếm.\n- **Học từ vựng / flashcard**: bộ thẻ, lật thẻ, lặp lại ngắt quãng (thẻ khó xuất hiện lại sớm), thống kê đã thuộc.\n- **Theo dõi thói quen**: lưới ngày, chuỗi ngày liên tiếp, biểu đồ tuần.\nMỗi app: dữ liệu lưu localStorage/IndexedDB, có dữ liệu mẫu ở lần mở đầu, trạng thái rỗng, sao lưu/khôi phục, dùng tốt trên điện thoại."
+ },
+ {
+  "id": "web_event_handling",
+  "kind": "web",
+  "title": "Xử lý sự kiện cho đúng: nút, form, phím, gõ liên tục",
+  "keys": [
+   "su kien",
+   "event",
+   "click",
+   "nut khong chay",
+   "nut khong hoat dong",
+   "submit",
+   "preventdefault",
+   "debounce",
+   "phim tat",
+   "addeventlistener"
+  ],
+  "body": "```js\n// Ủy quyền: một listener cho cả danh sách, kể cả phần tử thêm sau\nlist.addEventListener(\"click\", (e) => {\n  const btn = e.target.closest(\"button[data-action]\");\n  if (!btn) return;\n  const id = btn.closest(\"[data-id]\")?.dataset.id;\n  if (btn.dataset.action === \"delete\" && confirm(\"Xoá mục này?\")) remove(id);\n});\nform.addEventListener(\"submit\", (e) => {\n  e.preventDefault();                                  // không tải lại trang\n  if (!form.checkValidity()) return form.reportValidity();\n  const data = Object.fromEntries(new FormData(form));  // { ten: \"...\", email: \"...\" }\n  save(data); form.reset(); showToast(\"Đã lưu\");\n});\nconst debounce = (fn, ms = 300) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };\nsearch.addEventListener(\"input\", debounce(() => render(search.value)));\naddEventListener(\"keydown\", (e) => { if (e.key === \"Escape\") closeAll(); });\n```\n- Mọi nút phải có phản hồi thấy được (đổi giao diện, thông báo, chuyển màn hình); nút chưa làm thì ẩn đi thay vì để \"chết\".\n- Gắn sự kiện sau khi phần tử tồn tại (script cuối `<body>` hoặc `defer`); kiểm tra `querySelector` không trả `null`."
  }
 ]

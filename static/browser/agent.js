@@ -190,9 +190,9 @@ function failureFeedback(result, tests, analysis) {
   return lines.join("\n");
 }
 
-function stressFeedback(result) {
+function stressFeedback(result, source = "Stress test (so với lời giải trâu trên test nhỏ ngẫu nhiên)") {
   if (result.result === "CE") return `Code bị lỗi biên dịch:\n\`\`\`\n${result.compile_error}\n\`\`\`\nHãy sửa lỗi và viết lại TOÀN BỘ code.`;
-  const lines = [`Stress test (so với lời giải trâu trên test nhỏ ngẫu nhiên) tìm ra test sai (seed ${result.seed}):`,
+  const lines = [`${source} tìm ra test sai (test ${result.seed}):`,
     `Input:\n\`\`\`\n${result.input}\`\`\``];
   if (result.result === "MISMATCH") {
     lines.push(`Output của lời giải trâu:\n\`\`\`\n${result.expected_output}\n\`\`\``,
@@ -291,6 +291,7 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite, checkSit
   // Strong models read the samples and analyse the problem in one request (the free cloud allows one reply per 30 s).
   const fullSchema = { type: "object", properties: { tests: TEST_SCHEMA.properties.tests, ...analysisProps },
     required: ["tests", ...Object.keys(analysisProps)] };
+  const edgeSchema = { type: "object", properties: { inputs: { type: "array", items: { type: "string" } } }, required: ["inputs"] };
   const helpersSchema = { type: "object",
     properties: { generator: { type: "string" }, brute: { type: "string" }, big_generator: { type: "string" } },
     required: ["generator", "brute", "big_generator"] };
@@ -411,6 +412,29 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite, checkSit
     return parts.join("\n\n");
   }
 
+  /**
+   * Edge cases chosen by the model (n = 1, all equal, negatives, extremes…), run against the brute force:
+   * random stress tests rarely hit them. Inputs the brute force rejects are treated as invalid and skipped.
+   */
+  async function* edgeRun(state, lang, source, timeLimit, id) {
+    yield { type: "tool_start", id, name: "edge_tests" };
+    if (!state.edge) {
+      const raw = yield* quiet([{ role: "system", content: prompts.edge_tests }, { role: "user", content: `Problem:\n${state.statement || ""}` }],
+        id, { schema: edgeSchema, temperature: 0.3, maxTokens: 800, effort: "low" });
+      state.edge = ((parseJSON(raw) || {}).inputs || []).filter((x) => typeof x === "string" && x.trim())
+        .slice(0, 8).map((x) => (x.endsWith("\n") ? x : x + "\n"));
+    }
+    if (!state.edge.length) {
+      yield { type: "tool_result", id, name: "edge_tests", output: { error: "AI không đưa ra được test biên hợp lệ, bỏ qua." } };
+      return null;
+    }
+    const generator = `import sys\nT = ${JSON.stringify(state.edge)}\nsys.stdout.write(T[int(sys.argv[1]) - 1])\n`;
+    const result = yield* withStatus(id, (onStatus) => judge.stressTest(generator, { language: lang, code: source },
+      { language: state.stress.brute_language, code: state.stress.brute }, state.edge.length, timeLimit, 30, onStatus));
+    yield { type: "tool_result", id, name: "edge_tests", output: { ...result, total: state.edge.length } };
+    return result.result === "BRUTE_FAILED" || result.result === "GENERATOR_FAILED" ? null : result;
+  }
+
   async function* perfRun(state, lang, source, timeLimit, id) {
     yield { type: "tool_start", id, name: "perf_test" };
     const result = yield* withStatus(id, (onStatus) => judge.perfTest(state.big, { language: lang, code: source }, timeLimit, onStatus));
@@ -490,7 +514,7 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite, checkSit
     const { messages, state } = conv;
     const text = messages[messages.length - 1].content;
     if (text.length > NEW_PROBLEM_CHARS) {
-      Object.assign(state, { statement: text, analysis: {}, kb: [], stress: null, big: null });
+      Object.assign(state, { statement: text, analysis: {}, kb: [], stress: null, big: null, edge: null });
       let tests = [];
       if (ctx.strong) {
         yield { type: "tool_start", id: "analyze", name: "analyze_problem" };
@@ -580,6 +604,11 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite, checkSit
           passed.push(`${result.iterations_passed} test ngẫu nhiên so với lời giải trâu`);
         } else if (result) { feedback = stressFeedback(result); verdict = result.result; }
       }
+      if (feedback === null && doStress && ctx.effort === "max" && state.stress && state.stress.brute) {
+        const result = yield* edgeRun(state, lang, source, timeLimit, `edge${round}`);
+        if (result && result.result === "ALL_PASSED") passed.push(`${result.iterations_passed} test biên`);
+        else if (result) { feedback = stressFeedback(result, "Test biên do AI nghĩ ra (so với lời giải trâu)"); verdict = `${result.result} ở test biên`; }
+      }
       if (feedback === null && doStress && state.big) {
         const result = yield* perfRun(state, lang, source, timeLimit, `perf${round}`);
         if (result.result === "OK") passed.push(`test lớn nhất trong ${result.time.toFixed(2)} giây (đo trong trình duyệt, chậm hơn máy chấm khoảng 2 lần)`);
@@ -654,9 +683,13 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite, checkSit
     for (;;) {
       if (!r.page) {
         // A page that was started but never finished (cut off) is asked for again, once, more compactly.
-        if (/```html/i.test(r.reply) && rewrites-- > 0) {
-          conv.messages.push({ role: "user", content: "Trang HTML vừa rồi bị cắt giữa chừng. Hãy viết lại TOÀN BỘ file HTML gọn hơn (khoảng 250 dòng), đầy đủ từ <!doctype html> đến </html>, trong một code block." });
-          yield { type: "notice", text: "Trang bị cắt giữa chừng, AI đang viết lại gọn hơn." };
+        // A cut-off page, or a reply that stopped after a sentence or two without any code, is asked for again.
+        const stub = r.reply.trim().length < 400 && !r.reply.includes("```");
+        if ((/```html/i.test(r.reply) || stub) && rewrites-- > 0) {
+          conv.messages.push({ role: "user", content: stub
+            ? "Bạn chưa đưa ra trang. Hãy viết TOÀN BỘ file HTML hoàn chỉnh, từ <!doctype html> đến </html>, trong một code block ```html."
+            : "Trang HTML vừa rồi bị cắt giữa chừng. Hãy viết lại TOÀN BỘ file HTML gọn hơn (khoảng 250 dòng), đầy đủ từ <!doctype html> đến </html>, trong một code block." });
+          yield { type: "notice", text: stub ? "AI chưa viết trang, đang yêu cầu viết lại." : "Trang bị cắt giữa chừng, AI đang viết lại gọn hơn." };
           r = yield* attempt("build");
           continue;
         }

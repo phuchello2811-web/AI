@@ -279,10 +279,10 @@ def _failure_feedback(result: dict, tests: list[dict], analysis: dict) -> str:
     return "\n".join(lines)
 
 
-def _stress_feedback(result: dict) -> str:
+def _stress_feedback(result: dict, source: str = "Stress test (so với lời giải trâu trên test nhỏ ngẫu nhiên)") -> str:
     if result["result"] == "CE":
         return f"Code bị lỗi biên dịch:\n```\n{result['compile_error']}\n```\nHãy sửa lỗi và viết lại TOÀN BỘ code."
-    lines = [f"Stress test (so với lời giải trâu trên test nhỏ ngẫu nhiên) tìm ra test sai (seed {result.get('seed')}):",
+    lines = [f"{source} tìm ra test sai (test {result.get('seed')}):",
              f"Input:\n```\n{result['input']}```"]
     if result["result"] == "MISMATCH":
         lines.append(f"Output của lời giải trâu:\n```\n{result['expected_output']}\n```")
@@ -371,6 +371,32 @@ def _stress(client, model, state, lang, source, time_limit, run_id):
     return result
 
 
+EDGE_SCHEMA = {"type": "object", "properties": {"inputs": {"type": "array", "items": {"type": "string"}}}, "required": ["inputs"]}
+
+
+def _edge(client, model, state, lang, source, time_limit, run_id):
+    """Edge cases chosen by the model, run against the brute force; None if they could not be used."""
+    yield {"type": "tool_start", "id": run_id, "name": "edge_tests"}
+    if state.get("edge") is None:
+        request = [{"role": "system", "content": PROMPTS["edge_tests"]}, {"role": "user", "content": f"Problem:\n{state.get('statement', '')}"}]
+        raw = yield from _stream_quiet(client, model, request, run_id, format=EDGE_SCHEMA,
+                                       options={"temperature": 0.3, "num_ctx": num_ctx(), "num_predict": 800}, **_no_think(client, model))
+        try:
+            inputs = json.loads(raw).get("inputs", [])
+        except (json.JSONDecodeError, AttributeError):
+            inputs = []
+        state["edge"] = [x if x.endswith("\n") else x + "\n" for x in inputs if isinstance(x, str) and x.strip()][:8]
+    if not state["edge"]:
+        yield {"type": "tool_result", "id": run_id, "name": "edge_tests", "output": {"error": "AI không đưa ra được test biên hợp lệ, bỏ qua."}}
+        return None
+    generator = f"import sys\nT = {json.dumps(state['edge'], ensure_ascii=False)}\nsys.stdout.write(T[int(sys.argv[1]) - 1])\n"
+    helpers = state["stress"]
+    result = sandbox.stress_test(generator, {"language": lang, "code": source},
+                                 {"language": helpers["brute_language"], "code": helpers["brute"]}, len(state["edge"]), time_limit, 30)
+    yield {"type": "tool_result", "id": run_id, "name": "edge_tests", "output": {**result, "total": len(state["edge"])}}
+    return None if result["result"] in ("BRUTE_FAILED", "GENERATOR_FAILED") else result
+
+
 def _perf(state, lang, source, time_limit, run_id):
     yield {"type": "tool_start", "id": run_id, "name": "perf_test"}
     result = sandbox.perf_test(state["big"], {"language": lang, "code": source}, time_limit)
@@ -436,7 +462,7 @@ def _solve_problem(client, messages, state, model, think, effort):
     cfg = EFFORTS[effort]
     text = messages[-1]["content"]
     if len(text) > NEW_PROBLEM_CHARS:
-        state.update({"statement": text, "analysis": {}, "kb": [], "stress": None, "big": None})
+        state.update({"statement": text, "analysis": {}, "kb": [], "stress": None, "big": None, "edge": None})
         yield {"type": "tool_start", "id": "extract", "name": "extract_tests"}
         tests = extract_tests(client, model, text)
         if tests:
@@ -503,6 +529,13 @@ def _solve_problem(client, messages, state, model, think, effort):
                 passed.append(f"{result['iterations_passed']} test ngẫu nhiên so với lời giải trâu")
             elif result:
                 feedback, verdict = _stress_feedback(result), result["result"]
+        if feedback is None and stress and effort == "max" and state.get("stress"):
+            result = yield from _edge(client, model, state, lang, source, time_limit, f"edge{round_no}")
+            if result and result["result"] == "ALL_PASSED":
+                passed.append(f"{result['iterations_passed']} test biên")
+            elif result:
+                feedback = _stress_feedback(result, "Test biên do AI nghĩ ra (so với lời giải trâu)")
+                verdict = f"{result['result']} ở test biên"
         if feedback is None and stress and state.get("big"):
             result = yield from _perf(state, lang, source, time_limit, f"perf{round_no}")
             if result["result"] == "OK":

@@ -214,10 +214,21 @@ def stress_test(generator_code: str, solution: dict, brute: dict, iterations: in
             prog.cleanup()
 
 
+# GCC helpers that contestants use and libc++ (Apple clang) lacks.
+LIBCPP_EXTRAS = """#ifdef _LIBCPP_VERSION
+inline int __lg(unsigned long long x) { return 63 - __builtin_clzll(x); }
+inline int __lg(long long x) { return __lg((unsigned long long)x); }
+inline int __lg(unsigned long x) { return __lg((unsigned long long)x); }
+inline int __lg(long x) { return __lg((unsigned long long)x); }
+inline int __lg(unsigned x) { return __lg((unsigned long long)x); }
+inline int __lg(int x) { return __lg((unsigned long long)x); }
+template <class T> T __gcd(T a, T b) { while (b) { T t = a % b; a = b; b = t; } return a; }
+#endif
+"""
+
+
 def ensure_cpp_shim():
     header = SHIM_INCLUDE / "bits" / "stdc++.h"
-    if header.exists():
-        return
     header.parent.mkdir(parents=True, exist_ok=True)
     headers = [
         "cassert", "cctype", "cerrno", "cfloat", "climits", "cmath", "cstdio", "cstdlib", "cstring",
@@ -228,8 +239,9 @@ def ensure_cpp_shim():
         "vector", "optional", "variant", "string_view", "climits", "cstddef", "regex", "atomic",
         "thread", "mutex",
     ]
-    header.write_text("#pragma once\n" + "".join(f"#include <{h}>\n" for h in dict.fromkeys(headers)),
-                      encoding="utf-8")
+    content = "#pragma once\n" + "".join(f"#include <{h}>\n" for h in dict.fromkeys(headers)) + LIBCPP_EXTRAS
+    if not header.exists() or header.read_text(encoding="utf-8") != content:
+        header.write_text(content, encoding="utf-8")
 
 
 ensure_cpp_shim()

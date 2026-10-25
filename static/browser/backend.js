@@ -1,5 +1,5 @@
 // The whole app inside the browser: answers the same /api/... requests as server.py, with
-// conversations stored in IndexedDB, the model in the free cloud or on WebGPU (models.js) and code
+// conversations stored in IndexedDB, the model on free hosted services or through Puter (models.js) and code
 // judged in WebAssembly (judge.js). Used on GitHub Pages and whenever no local server is running.
 
 import * as llm from "./models.js";
@@ -152,11 +152,10 @@ export async function request(path, { method = "GET", body } = {}) {
 }
 
 async function health() {
-  const gpu = await llm.hasWebGPU();
-  const models = llm.MODELS.filter((m) => m.provider !== "local" || gpu).map((m) => ({
+  const models = llm.MODELS.map((m) => ({
     name: m.name, label: m.label, note: m.note, provider: m.provider, free: m.free || null, capabilities: ["completion"],
   }));
-  return { browser: true, webgpu: gpu, ollama: true, models, languages: judge.LANGUAGES };
+  return { browser: true, ollama: true, models, languages: judge.LANGUAGES };
 }
 
 /** Download and start the C++ compiler and Python in the background, so the first judge run is instant. */

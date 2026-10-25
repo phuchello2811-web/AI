@@ -51,3 +51,12 @@
 #include <atomic>
 #include <thread>
 #include <mutex>
+#ifdef _LIBCPP_VERSION
+inline int __lg(unsigned long long x) { return 63 - __builtin_clzll(x); }
+inline int __lg(long long x) { return __lg((unsigned long long)x); }
+inline int __lg(unsigned long x) { return __lg((unsigned long long)x); }
+inline int __lg(long x) { return __lg((unsigned long long)x); }
+inline int __lg(unsigned x) { return __lg((unsigned long long)x); }
+inline int __lg(int x) { return __lg((unsigned long long)x); }
+template <class T> T __gcd(T a, T b) { while (b) { T t = a % b; a = b; b = t; } return a; }
+#endif

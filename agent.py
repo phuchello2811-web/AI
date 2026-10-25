@@ -449,6 +449,10 @@ def _solve_problem(client, messages, state, model, think, effort):
             yield {"type": "tool_result", "id": "analyze", "name": "analyze_problem",
                    "output": state["analysis"] or {"error": "Không phân tích được đề, tiếp tục giải trực tiếp."}}
         entries = knowledge.retrieve(text, state["analysis"].get("topics"), k=cfg["kb"])
+        # Always remind of classic pitfalls; at "max" also of the method for hard problems.
+        for extra in (["pitfalls", "problem_solving_method"] if effort == "max" else ["pitfalls"]):
+            if extra in knowledge.BY_ID and all(e["id"] != extra for e in entries):
+                entries.append(knowledge.BY_ID[extra])
         state["kb"] = [e["id"] for e in entries]
         state["lessons"] = similar_lessons(f"{state['analysis'].get('summary', '')} {text}")
         if entries or state["lessons"]:
@@ -551,6 +555,14 @@ def run_turn(client: ollama.Client, conversation_id: str, messages: list, state:
                    "output": {"topics": [{"id": e["id"], "title": e["title"]} for e in entries]}}
     reply = yield from stream_reply(client, model, system, messages, think)
     messages.append({"role": "assistant", "content": reply})
+    if mode == "chat" and effort == "max" and reply.strip():
+        # The model critiques its own answer once and rewrites it if it finds a mistake.
+        messages.append({"role": "user", "content": PROMPTS["chat_review"]})
+        yield {"type": "notice", "text": "AI đang tự phản biện câu trả lời (kiến thức, code, độ phức tạp, ví dụ)."}
+        review = yield from stream_reply(client, model, system, messages, think)
+        messages.append({"role": "assistant", "content": review})
+        if re.fullmatch(r"\s*\**ĐÚNG\**\s*\.?\s*", review, re.I):
+            yield {"type": "notice", "kind": "success", "text": "AI tự kiểm tra: câu trả lời đúng."}
     if mode == "web":
         page = last_code_block(reply, {"html": "html"})
         if not page:

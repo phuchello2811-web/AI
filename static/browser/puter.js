@@ -11,7 +11,6 @@ export const MODELS = [
   { id: "gpt-5.6-sol", label: "GPT-5.6 Sol", note: "Mạnh nhất của OpenAI; rất tốn hạn mức" },
   { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5", note: "Rất mạnh về lập trình; tốn hạn mức nhiều" },
   { id: "gpt-5.6-terra", label: "GPT-5.6 Terra", note: "OpenAI, suy luận mạnh" },
-  { id: "qwen3.8-max", label: "Qwen3.8 Max", note: "Alibaba, mạnh nhất dòng Qwen" },
   { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro", note: "Suy luận toán và thuật toán, giá vừa" },
   { id: "gemini-4-argon", label: "Gemini 4 Argon", note: "Mạnh nhất của Google; tốn hạn mức" },
   { id: "grok-4.7", label: "Grok 4.7", note: "xAI, suy luận mạnh" },
@@ -20,6 +19,16 @@ export const MODELS = [
   { id: "glm-5.3", label: "GLM-5.3", note: "Zhipu, mạnh về code và web" },
   { id: "minimax-m3", label: "MiniMax M3", note: "Rẻ, mạnh, ngữ cảnh 1 triệu token" },
 ];
+
+// The Qwen family runs on Puter's servers too: no multi-GB download into the browser.
+export const QWEN_MODELS = [
+  { id: "qwen3.8-2.4t-a95b", label: "Qwen3.8 2.4T", note: "Bản lớn nhất của Qwen (2.400 tỉ tham số), cho bài khó nhất" },
+  { id: "qwen3.8-max", label: "Qwen3.8 Max", note: "Mạnh, cân bằng giữa chất lượng và hạn mức" },
+  { id: "qwen3.8-27b", label: "Qwen3.8 27B", note: "Mã nguồn mở, nhanh, tốn ít hạn mức" },
+  { id: "qwen3-coder-flash", label: "Qwen3 Coder Flash", note: "Chuyên viết code, rất nhanh" },
+  { id: "qwen3.8-flash", label: "Qwen3.8 Flash", note: "Rẻ nhất, hợp hỏi đáp nhanh" },
+];
+const ALL = [...MODELS, ...QWEN_MODELS];
 
 let loading = null;
 
@@ -66,12 +75,15 @@ export async function* chat(messages, { model, signal } = {}) {
   for await (const part of stream) {
     if (signal && signal.aborted) throw new DOMException("stopped", "AbortError");
     if (!part) continue;
+    if (part.type === "error" || part.error) {
+      throw new Error((part.error && (part.error.message || part.error)) || part.message || "Puter báo lỗi khi trả lời.");
+    }
     const thought = part.reasoning || (part.type === "reasoning" ? part.text : "");
     if (thought) { chars += thought.length; yield { thinking: thought }; continue; }
     const text = typeof part === "string" ? part : part.text;
     if (text) { chars += text.length; yield { text }; }
   }
   const seconds = (performance.now() - started) / 1000;
-  const label = (MODELS.find((m) => m.id === model) || { label: model }).label;
+  const label = (ALL.find((m) => m.id === model) || { label: model }).label;
   yield { usage: { input: 0, output: Math.round(chars / 4), speed: seconds ? Math.round(chars / 4 / seconds) : 0, model: label } };
 }

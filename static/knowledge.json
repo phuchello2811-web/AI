@@ -2560,5 +2560,380 @@
    "bien css"
   ],
   "body": "```css\n:root {\n  --font-sans: \"Be Vietnam Pro\", system-ui, sans-serif;\n  --text-sm: 14px; --text-md: 16px; --text-lg: 20px; --text-xl: clamp(28px, 4vw, 40px);\n  --radius-sm: 8px; --radius-md: 12px; --radius-lg: 20px;\n  --shadow-sm: 0 1px 2px rgb(0 0 0 / .06); --shadow-md: 0 8px 24px rgb(0 0 0 / .10); --shadow-lg: 0 24px 60px rgb(0 0 0 / .16);\n  --ease-out: cubic-bezier(.2, .8, .2, 1); --dur-fast: 150ms; --dur-med: 250ms;\n}\n```\n- Mọi giá trị màu, cỡ chữ, bo góc, bóng, thời lượng lấy từ biến; đổi thương hiệu chỉ cần sửa `:root`.\n- Thành phần (nút, thẻ, ô nhập, badge) viết một lần, dùng lại bằng class; biến thể bằng modifier (`.btn-primary`, `.btn-sm`)."
+ },
+ {
+  "id": "sparse_table_code",
+  "title": "Sparse table (min/max đoạn O(1)) — code",
+  "keys": [
+   "sparse table",
+   "rmq",
+   "min doan",
+   "max doan",
+   "range minimum",
+   "khong cap nhat"
+  ],
+  "body": "```cpp\nstruct Sparse { vector<vector<int>> t;\n  Sparse(const vector<int>& a) { int n = a.size(), K = __lg(max(1, n)) + 1; t.assign(K, a);\n    for (int k = 1; k < K; ++k) for (int i = 0; i + (1 << k) <= n; ++i) t[k][i] = min(t[k - 1][i], t[k - 1][i + (1 << (k - 1))]); }\n  int query(int l, int r) { int k = __lg(r - l + 1); return min(t[k][l], t[k][r - (1 << k) + 1]); } };  // [l, r]\n```"
+ },
+ {
+  "id": "fenwick_range_code",
+  "title": "Fenwick cộng đoạn, tổng đoạn — code",
+  "keys": [
+   "fenwick",
+   "bit",
+   "cong doan",
+   "tong doan",
+   "range update range query",
+   "cap nhat doan bit"
+  ],
+  "body": "```cpp\nstruct RangeBIT { int n; vector<long long> b1, b2; RangeBIT(int n): n(n), b1(n + 2), b2(n + 2) {}\n  void add(vector<long long>& b, int i, long long v) { for (; i <= n; i += i & -i) b[i] += v; }\n  long long sum(vector<long long>& b, int i) { long long s = 0; for (; i > 0; i -= i & -i) s += b[i]; return s; }\n  void rangeAdd(int l, int r, long long v) { add(b1, l, v); add(b1, r + 1, -v); add(b2, l, v * (l - 1)); add(b2, r + 1, -v * r); }\n  long long prefix(int i) { return sum(b1, i) * i - sum(b2, i); }\n  long long rangeSum(int l, int r) { return prefix(r) - prefix(l - 1); } };  // chỉ số 1..n\n```"
+ },
+ {
+  "id": "weighted_dsu_code",
+  "title": "DSU có trọng số / chẵn lẻ — code",
+  "keys": [
+   "dsu trong so",
+   "weighted dsu",
+   "chan le",
+   "parity",
+   "hieu gia tri",
+   "quan he giua hai dinh",
+   "x - y = d"
+  ],
+  "body": "Lưu `d[v]` = giá trị(v) − giá trị(cha của v); trả lời \"x − y = ?\" hoặc phát hiện mâu thuẫn.\n```cpp\nstruct WDSU { vector<int> p; vector<long long> d; WDSU(int n): p(n), d(n) { iota(p.begin(), p.end(), 0); }\n  int find(int x) { if (p[x] == x) return x; int r = find(p[x]); d[x] += d[p[x]]; p[x] = r; return r; }\n  // ghi nhận val[x] - val[y] = w; trả về false nếu mâu thuẫn\n  bool unite(int x, int y, long long w) { int rx = find(x), ry = find(y);\n    if (rx == ry) return d[x] - d[y] == w; p[rx] = ry; d[rx] = w + d[y] - d[x]; return true; }\n  long long diff(int x, int y) { find(x); find(y); return d[x] - d[y]; } };\n```\nChẵn lẻ (khác màu / cùng màu): thay cộng bằng XOR."
+ },
+ {
+  "id": "bellman_ford_code",
+  "title": "Bellman-Ford, phát hiện chu trình âm — code",
+  "keys": [
+   "bellman",
+   "bellman ford",
+   "chu trinh am",
+   "negative cycle",
+   "canh am",
+   "spfa"
+  ],
+  "body": "```cpp\nconst long long INF = LLONG_MAX / 4;\n// trả về false nếu có chu trình âm đi tới được từ s\nbool bellmanFord(int n, const vector<array<long long, 3>>& edges, int s, vector<long long>& d) {\n  d.assign(n, INF); d[s] = 0;\n  for (int it = 0; it < n; ++it) { bool changed = false;\n    for (auto [u, v, w] : edges) if (d[u] < INF && d[u] + w < d[v]) { d[v] = d[u] + w; changed = true; }\n    if (!changed) return true; if (it == n - 1) return false; }\n  return true; }\n```"
+ },
+ {
+  "id": "floyd_code",
+  "title": "Floyd–Warshall có truy vết đường đi — code",
+  "keys": [
+   "floyd",
+   "floyd warshall",
+   "moi cap dinh",
+   "all pairs",
+   "duong di ngan nhat moi cap",
+   "truy vet"
+  ],
+  "body": "```cpp\nconst long long INF = LLONG_MAX / 4;\nvoid floyd(vector<vector<long long>>& d, vector<vector<int>>& nxt) { int n = d.size(); nxt.assign(n, vector<int>(n, -1));\n  for (int i = 0; i < n; ++i) for (int j = 0; j < n; ++j) if (d[i][j] < INF) nxt[i][j] = j;\n  for (int k = 0; k < n; ++k) for (int i = 0; i < n; ++i) for (int j = 0; j < n; ++j)\n    if (d[i][k] < INF && d[k][j] < INF && d[i][k] + d[k][j] < d[i][j]) { d[i][j] = d[i][k] + d[k][j]; nxt[i][j] = nxt[i][k]; } }\nvector<int> path(int u, int v, const vector<vector<int>>& nxt) { if (nxt[u][v] < 0) return {}; vector<int> p{u}; while (u != v) p.push_back(u = nxt[u][v]); return p; }\n```\nO(n³), n ≤ ~400–500. `d[i][i] < 0` sau khi chạy ⇒ i nằm trên chu trình âm."
+ },
+ {
+  "id": "toposort_code",
+  "title": "Sắp xếp topo (Kahn) — code",
+  "keys": [
+   "topo",
+   "topological sort",
+   "kahn",
+   "thu tu cong viec",
+   "dag",
+   "phu thuoc",
+   "tien quyet"
+  ],
+  "body": "```cpp\n// trả về thứ tự topo; rỗng nếu có chu trình. Dùng priority_queue<int, vector<int>, greater<int>> để có thứ tự nhỏ nhất theo từ điển.\nvector<int> topo(int n, const vector<vector<int>>& g) { vector<int> indeg(n), order; for (int u = 0; u < n; ++u) for (int v : g[u]) indeg[v]++;\n  queue<int> q; for (int u = 0; u < n; ++u) if (!indeg[u]) q.push(u);\n  while (!q.empty()) { int u = q.front(); q.pop(); order.push_back(u); for (int v : g[u]) if (!--indeg[v]) q.push(v); }\n  if ((int)order.size() < n) order.clear(); return order; }\n```"
+ },
+ {
+  "id": "bridges_code",
+  "title": "Cầu và khớp — code",
+  "keys": [
+   "cau",
+   "bridge",
+   "khop",
+   "articulation",
+   "dinh cat",
+   "canh cat",
+   "cut vertex"
+  ],
+  "body": "```cpp\nint timer_ = 0; vector<vector<pair<int,int>>> g; vector<int> tin, low; vector<pair<int,int>> bridges; vector<char> isCut;\nvoid dfs(int u, int pe) { tin[u] = low[u] = ++timer_; int kids = 0;\n  for (auto [v, id] : g[u]) { if (id == pe) continue;\n    if (tin[v]) low[u] = min(low[u], tin[v]);\n    else { dfs(v, id); low[u] = min(low[u], low[v]); ++kids;\n      if (low[v] > tin[u]) bridges.push_back({u, v});\n      if (pe != -1 && low[v] >= tin[u]) isCut[u] = 1; } }\n  if (pe == -1 && kids > 1) isCut[u] = 1; }\n// g[u] chứa (v, id cạnh); tin.assign(n,0); low.assign(n,0); isCut.assign(n,0); for u: if (!tin[u]) dfs(u, -1);\n```"
+ },
+ {
+  "id": "bfs01_code",
+  "title": "BFS 0-1 — code",
+  "keys": [
+   "0-1 bfs",
+   "bfs 0 1",
+   "deque",
+   "trong so 0 1",
+   "it lan doi",
+   "it lan re"
+  ],
+  "body": "```cpp\nvector<int> bfs01(int n, const vector<vector<pair<int,int>>>& g, int s) { vector<int> d(n, INT_MAX); deque<int> dq; d[s] = 0; dq.push_back(s);\n  while (!dq.empty()) { int u = dq.front(); dq.pop_front();\n    for (auto [v, w] : g[u]) if (d[u] + w < d[v]) { d[v] = d[u] + w; if (w == 0) dq.push_front(v); else dq.push_back(v); } }\n  return d; }\n```\nVí dụ: ít lần đổi hướng/đập tường nhất trên lưới — đi thẳng trọng số 0, đổi hướng trọng số 1."
+ },
+ {
+  "id": "trie_code",
+  "title": "Trie: thêm từ, đếm tiền tố, XOR lớn nhất — code",
+  "keys": [
+   "trie",
+   "cay tien to",
+   "dem tien to",
+   "prefix count",
+   "xor lon nhat",
+   "tu dien"
+  ],
+  "body": "```cpp\nstruct Trie { vector<array<int,26>> nx{{}}; vector<int> cnt{0}, endc{0};\n  void insert(const string& s) { int u = 0; for (char ch : s) { int c = ch - 'a'; if (!nx[u][c]) { nx[u][c] = nx.size(); nx.push_back({}); cnt.push_back(0); endc.push_back(0); } u = nx[u][c]; cnt[u]++; } endc[u]++; }\n  int countPrefix(const string& p) { int u = 0; for (char ch : p) { u = nx[u][ch - 'a']; if (!u) return 0; } return cnt[u]; } };\nstruct XorTrie { vector<array<int,2>> nx{{0, 0}};\n  void insert(int x) { int u = 0; for (int b = 30; b >= 0; --b) { int c = x >> b & 1; if (!nx[u][c]) { nx[u][c] = nx.size(); nx.push_back({0, 0}); } u = nx[u][c]; } }\n  int maxXor(int x) { int u = 0, r = 0; for (int b = 30; b >= 0; --b) { int c = x >> b & 1; if (nx[u][!c]) { r |= 1 << b; u = nx[u][!c]; } else u = nx[u][c]; } return r; } };\n```"
+ },
+ {
+  "id": "aho_corasick_code",
+  "title": "Aho-Corasick (tìm nhiều mẫu cùng lúc) — code",
+  "keys": [
+   "aho",
+   "corasick",
+   "nhieu mau",
+   "multiple patterns",
+   "dem so lan xuat hien",
+   "tu khoa cam"
+  ],
+  "body": "```cpp\nstruct Aho { vector<array<int,26>> go{{}}; vector<int> link{0}, out{0};\n  int add(const string& s) { int u = 0; for (char ch : s) { int c = ch - 'a'; if (!go[u][c]) { go[u][c] = go.size(); go.push_back({}); link.push_back(0); out.push_back(0); } u = go[u][c]; } out[u]++; return u; }\n  void build() { queue<int> q; for (int c = 0; c < 26; ++c) if (go[0][c]) q.push(go[0][c]);\n    while (!q.empty()) { int u = q.front(); q.pop(); out[u] += out[link[u]];\n      for (int c = 0; c < 26; ++c) { int v = go[u][c]; if (v) { link[v] = go[link[u]][c]; q.push(v); } else go[u][c] = go[link[u]][c]; } } }\n  long long countAll(const string& t) { long long res = 0; int u = 0; for (char ch : t) { u = go[u][ch - 'a']; res += out[u]; } return res; } };\n```\n`countAll` = tổng số lần xuất hiện của mọi mẫu trong t (sau `build()`)."
+ },
+ {
+  "id": "matrix_power_code",
+  "title": "Luỹ thừa ma trận — code",
+  "keys": [
+   "luy thua ma tran",
+   "matrix exponentiation",
+   "fibonacci lon",
+   "truy hoi tuyen tinh",
+   "10^18",
+   "dem duong di do dai k"
+  ],
+  "body": "```cpp\ntypedef vector<vector<long long>> Mat; const long long MOD = 1e9 + 7;\nMat mul(const Mat& A, const Mat& B) { int n = A.size(), m = B[0].size(), k = B.size(); Mat C(n, vector<long long>(m));\n  for (int i = 0; i < n; ++i) for (int t = 0; t < k; ++t) if (A[i][t]) for (int j = 0; j < m; ++j) C[i][j] = (C[i][j] + A[i][t] * B[t][j]) % MOD; return C; }\nMat power(Mat A, long long e) { int n = A.size(); Mat R(n, vector<long long>(n)); for (int i = 0; i < n; ++i) R[i][i] = 1;\n  for (; e; e >>= 1, A = mul(A, A)) if (e & 1) R = mul(R, A); return R; }\n// Fibonacci: [[1,1],[1,0]]^n → F(n) = power(...)[0][1]\n```"
+ },
+ {
+  "id": "sieve_factor_code",
+  "title": "Sàng ước nguyên tố nhỏ nhất, phân tích nhanh — code",
+  "keys": [
+   "sang",
+   "sieve",
+   "uoc nguyen to nho nhat",
+   "spf",
+   "phan tich thua so",
+   "so uoc",
+   "tong uoc",
+   "nhieu truy van phan tich"
+  ],
+  "body": "```cpp\nvector<int> spf;  // spf[x] = ước nguyên tố nhỏ nhất của x\nvoid buildSpf(int N) { spf.assign(N + 1, 0); for (int i = 2; i <= N; ++i) if (!spf[i]) for (int j = i; j <= N; j += i) if (!spf[j]) spf[j] = i; }\nvector<pair<int,int>> factorize(int x) { vector<pair<int,int>> f; while (x > 1) { int p = spf[x], e = 0; while (x % p == 0) { x /= p; ++e; } f.push_back({p, e}); } return f; }\n// số ước = Π (e + 1)\n```"
+ },
+ {
+  "id": "binomial_code",
+  "title": "Tổ hợp C(n, k) modulo — code",
+  "keys": [
+   "to hop",
+   "nck",
+   "binomial",
+   "c(n,k)",
+   "giai thua modulo",
+   "nghich dao giai thua",
+   "pascal"
+  ],
+  "body": "```cpp\nconst long long MOD = 1e9 + 7; vector<long long> fact, inv;\nlong long pw(long long a, long long e) { long long r = 1; a %= MOD; for (; e; e >>= 1, a = a * a % MOD) if (e & 1) r = r * a % MOD; return r; }\nvoid initComb(int N) { fact.assign(N + 1, 1); inv.assign(N + 1, 1); for (int i = 1; i <= N; ++i) fact[i] = fact[i - 1] * i % MOD;\n  inv[N] = pw(fact[N], MOD - 2); for (int i = N; i > 0; --i) inv[i - 1] = inv[i] * i % MOD; }\nlong long C(int n, int k) { return k < 0 || k > n ? 0 : fact[n] * inv[k] % MOD * inv[n - k] % MOD; }\n```\nn nhỏ (≤ 5000) không cần mod nguyên tố: tam giác Pascal `C[n][k] = C[n-1][k-1] + C[n-1][k]`."
+ },
+ {
+  "id": "tsp_bitmask_code",
+  "title": "Người du lịch (TSP) bằng DP bitmask — code",
+  "keys": [
+   "tsp",
+   "nguoi du lich",
+   "travelling salesman",
+   "bitmask",
+   "di qua moi thanh pho",
+   "hamilton"
+  ],
+  "body": "```cpp\n// chu trình ngắn nhất đi qua mọi đỉnh, bắt đầu và kết thúc ở 0; n ≤ 20\nlong long tsp(const vector<vector<long long>>& w) { int n = w.size(); const long long INF = LLONG_MAX / 4;\n  vector<vector<long long>> dp(1 << n, vector<long long>(n, INF)); dp[1][0] = 0;\n  for (int mask = 1; mask < (1 << n); ++mask) for (int u = 0; u < n; ++u) if (dp[mask][u] < INF)\n    for (int v = 0; v < n; ++v) if (!(mask >> v & 1)) dp[mask | 1 << v][v] = min(dp[mask | 1 << v][v], dp[mask][u] + w[u][v]);\n  long long best = INF; for (int u = 1; u < n; ++u) best = min(best, dp[(1 << n) - 1][u] + w[u][0]); return n == 1 ? 0 : best; }\n```"
+ },
+ {
+  "id": "sliding_window_code",
+  "title": "Max/min trên mọi cửa sổ độ dài k (deque) — code",
+  "keys": [
+   "cua so truot",
+   "sliding window",
+   "max cua so",
+   "min cua so",
+   "deque don dieu",
+   "k phan tu lien tiep"
+  ],
+  "body": "```cpp\nvector<int> windowMax(const vector<int>& a, int k) { deque<int> dq; vector<int> res;\n  for (int i = 0; i < (int)a.size(); ++i) { while (!dq.empty() && a[dq.back()] <= a[i]) dq.pop_back(); dq.push_back(i);\n    if (dq.front() <= i - k) dq.pop_front(); if (i >= k - 1) res.push_back(a[dq.front()]); }\n  return res; }\n```"
+ },
+ {
+  "id": "double_hash_code",
+  "title": "Hash xâu kép (chống va chạm) — code",
+  "keys": [
+   "hash",
+   "bam xau",
+   "double hash",
+   "so sanh xau con",
+   "rolling hash",
+   "va cham"
+  ],
+  "body": "```cpp\nstruct StrHash { static const long long M1 = 1e9 + 7, M2 = 998244353; long long B; vector<long long> h1, h2, p1, p2;\n  StrHash(const string& s, long long base = 131) : B(base) { int n = s.size(); h1.assign(n + 1, 0); h2 = h1; p1.assign(n + 1, 1); p2 = p1;\n    for (int i = 0; i < n; ++i) { h1[i + 1] = (h1[i] * B + s[i]) % M1; h2[i + 1] = (h2[i] * B + s[i]) % M2; p1[i + 1] = p1[i] * B % M1; p2[i + 1] = p2[i] * B % M2; } }\n  pair<long long,long long> get(int l, int r) {  // [l, r)\n    return {((h1[r] - h1[l] * p1[r - l]) % M1 + M1) % M1, ((h2[r] - h2[l] * p2[r - l]) % M2 + M2) % M2}; } };\n```\nBài có thể bị hack (Codeforces): chọn `base` ngẫu nhiên lúc chạy."
+ },
+ {
+  "id": "polygon_area_pick",
+  "title": "Diện tích đa giác, định lý Pick — code",
+  "keys": [
+   "dien tich da giac",
+   "shoelace",
+   "pick",
+   "diem nguyen",
+   "lattice points",
+   "diem tren canh"
+  ],
+  "body": "```cpp\ntypedef long long ll;\nll area2(const vector<pair<ll,ll>>& p) { ll s = 0; int n = p.size(); for (int i = 0; i < n; ++i) { auto [x1, y1] = p[i]; auto [x2, y2] = p[(i + 1) % n]; s += x1 * y2 - x2 * y1; } return llabs(s); }  // = 2 × diện tích\nll boundaryPoints(const vector<pair<ll,ll>>& p) { ll b = 0; int n = p.size(); for (int i = 0; i < n; ++i) b += std::gcd(llabs(p[i].first - p[(i + 1) % n].first), llabs(p[i].second - p[(i + 1) % n].second)); return b; }\n// Pick: S = I + B/2 − 1  ⇒  số điểm nguyên bên trong I = (area2 − B + 2) / 2\n```"
+ },
+ {
+  "id": "grundy_code",
+  "title": "Số Grundy cho trò chơi bốc sỏi — code",
+  "keys": [
+   "grundy",
+   "sprague",
+   "tro choi boc soi",
+   "nim",
+   "nguoi di truoc thang",
+   "mex",
+   "subtraction game"
+  ],
+  "body": "```cpp\n// Mỗi lượt bốc một số sỏi thuộc tập moves; nhiều đống độc lập → XOR các Grundy\nvector<int> grundy(int N, const vector<int>& moves) { vector<int> g(N + 1);\n  for (int x = 1; x <= N; ++x) { vector<char> seen(moves.size() + 2, 0);\n    for (int m : moves) if (m <= x && g[x - m] < (int)seen.size()) seen[g[x - m]] = 1;\n    while (seen[g[x]]) ++g[x]; }\n  return g; }\n// người đi trước thắng ⇔ XOR của g[a_i] ≠ 0\n```"
+ },
+ {
+  "id": "interval_scheduling_code",
+  "title": "Chọn nhiều đoạn không giao nhau, phủ đoạn — code",
+  "keys": [
+   "xep lich",
+   "interval scheduling",
+   "doan khong giao",
+   "nhieu cuoc hop",
+   "phu doan",
+   "it doan nhat",
+   "activity selection"
+  ],
+  "body": "```cpp\nint maxDisjoint(vector<pair<int,int>> seg) {  // [l, r], chọn nhiều đoạn nhất không giao nhau\n  sort(seg.begin(), seg.end(), [](auto& a, auto& b) { return a.second < b.second; });\n  int cnt = 0, end = INT_MIN; for (auto [l, r] : seg) if (l > end) { ++cnt; end = r; } return cnt; }\n```\n- Ít đoạn nhất phủ [A, B]: sort theo l; mỗi bước trong các đoạn có l ≤ điểm hiện tại, chọn đoạn có r xa nhất.\n- Ít phòng nhất cho mọi cuộc họp: sweep sự kiện (+1 lúc bắt đầu, −1 lúc kết thúc), lấy giá trị lớn nhất."
+ },
+ {
+  "id": "web_auth_screens",
+  "kind": "web",
+  "title": "Màn hình đăng nhập / đăng ký",
+  "keys": [
+   "dang nhap",
+   "dang ky",
+   "login",
+   "register",
+   "sign in",
+   "sign up",
+   "mat khau",
+   "tai khoan"
+  ],
+  "body": "- Thẻ giữa màn hình rộng ~400px; logo, tiêu đề ngắn, ô email + mật khẩu (`autocomplete=\"email\"`, `\"current-password\"` hoặc `\"new-password\"`), nút chính rộng hết thẻ, liên kết \"Quên mật khẩu?\" và chuyển giữa đăng nhập/đăng ký.\n- Nút hiện/ẩn mật khẩu (`type` password ↔ text) có `aria-label`; đồng hồ độ mạnh mật khẩu khi đăng ký.\n- Báo lỗi chung chung khi sai (\"Email hoặc mật khẩu không đúng\"); khoá nút và hiện vòng quay khi đang gửi.\n- Không có máy chủ thật: chỉ mô phỏng (lưu tạm vào localStorage), không bao giờ gửi mật khẩu đi đâu."
+ },
+ {
+  "id": "web_chat_ui",
+  "kind": "web",
+  "title": "Giao diện chat / nhắn tin",
+  "keys": [
+   "chat",
+   "nhan tin",
+   "tin nhan",
+   "messenger",
+   "chatbot",
+   "hoi thoai",
+   "bong bong chat"
+  ],
+  "body": "```css\n.chat { display: grid; grid-template-rows: auto 1fr auto; height: 100dvh; }\n.messages { overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }\n.msg { max-width: min(75%, 560px); padding: 10px 14px; border-radius: 18px; line-height: 1.5; overflow-wrap: anywhere; }\n.msg.me { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }\n.msg.them { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 4px; }\n.composer { display: flex; gap: 8px; padding: 12px; padding-bottom: max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }\n```\n- Tự cuộn xuống tin mới chỉ khi người dùng đang ở cuối; Enter gửi, Shift+Enter xuống dòng; hiện \"đang soạn…\" và giờ gửi."
+ },
+ {
+  "id": "web_calendar",
+  "kind": "web",
+  "title": "Lịch tháng (calendar) — code",
+  "keys": [
+   "lich",
+   "calendar",
+   "lich thang",
+   "su kien",
+   "dat lich",
+   "ngay thang",
+   "chon ngay"
+  ],
+  "body": "```js\nfunction monthGrid(year, month) {                // month: 0..11; tuần bắt đầu thứ Hai\n  const first = new Date(year, month, 1), days = new Date(year, month + 1, 0).getDate();\n  const lead = (first.getDay() + 6) % 7;          // số ô trống trước ngày 1\n  const cells = Array.from({ length: lead }, () => null).concat(Array.from({ length: days }, (_, i) => i + 1));\n  while (cells.length % 7) cells.push(null);\n  return cells;                                   // vẽ bằng grid 7 cột: T2 … CN\n}\nconst today = new Date();\nconst title = new Intl.DateTimeFormat(\"vi-VN\", { month: \"long\", year: \"numeric\" }).format(today);   // \"tháng 10 năm 2026\"\n```\nĐánh dấu hôm nay, ngày có sự kiện (chấm màu), nút tháng trước/sau, bấm ngày để xem/thêm sự kiện (lưu localStorage)."
+ },
+ {
+  "id": "web_command_palette",
+  "kind": "web",
+  "title": "Bảng lệnh Ctrl/Cmd+K (command palette)",
+  "keys": [
+   "command palette",
+   "ctrl k",
+   "tim kiem nhanh",
+   "phim tat",
+   "spotlight",
+   "go lenh"
+  ],
+  "body": "```js\nconst commands = [{ name: \"Trang chủ\", run: () => (location.hash = \"#home\") }, { name: \"Đổi giao diện\", run: toggleTheme }];\nlet active = 0;\naddEventListener(\"keydown\", (e) => {\n  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === \"k\") { e.preventDefault(); palette.showModal(); input.value = \"\"; render(); input.focus(); }\n});\ninput.addEventListener(\"input\", () => { active = 0; render(); });\ninput.addEventListener(\"keydown\", (e) => {\n  const list = filtered();\n  if (e.key === \"ArrowDown\") { active = Math.min(active + 1, list.length - 1); render(); }\n  if (e.key === \"ArrowUp\") { active = Math.max(active - 1, 0); render(); }\n  if (e.key === \"Enter\" && list[active]) { palette.close(); list[active].run(); }\n});\nfunction filtered() { const q = input.value.toLowerCase(); return commands.filter((c) => c.name.toLowerCase().includes(q)); }\nfunction render() { results.replaceChildren(...filtered().map((c, i) => { const li = document.createElement(\"li\"); li.textContent = c.name; li.classList.toggle(\"active\", i === active); return li; })); }\nfunction toggleTheme() { document.documentElement.classList.toggle(\"dark\"); }\n```\n`palette` là một `<dialog>`; `input`, `results` là ô tìm và danh sách bên trong."
+ },
+ {
+  "id": "web_infinite_scroll",
+  "kind": "web",
+  "title": "Cuộn vô hạn / tải thêm",
+  "keys": [
+   "cuon vo han",
+   "infinite scroll",
+   "tai them",
+   "load more",
+   "phan trang dong",
+   "feed"
+  ],
+  "body": "```js\nlet page = 1, loading = false, done = false;\nconst io = new IntersectionObserver(async ([entry]) => {\n  if (!entry.isIntersecting || loading || done) return;\n  loading = true; sentinel.textContent = \"Đang tải…\";\n  const items = await loadPage(page++);            // hàm của bạn, trả về mảng\n  if (!items.length) { done = true; sentinel.textContent = \"Đã hết\"; io.disconnect(); }\n  else { list.append(...items.map(renderItem)); sentinel.textContent = \"\"; }\n  loading = false;\n}, { rootMargin: \"400px\" });\nio.observe(sentinel);                              // sentinel: một div trống ở cuối danh sách\n```\nKèm nút \"Tải thêm\" dự phòng cho bàn phím/trình đọc màn hình; giữ vị trí cuộn khi quay lại trang."
+ },
+ {
+  "id": "web_scroll_animation_css",
+  "kind": "web",
+  "title": "Hiệu ứng theo cuộn bằng CSS (scroll-driven)",
+  "keys": [
+   "hieu ung cuon",
+   "scroll animation",
+   "animation timeline",
+   "xuat hien khi cuon",
+   "thanh tien do doc",
+   "parallax css"
+  ],
+  "body": "```css\n.reveal { animation: reveal linear both; animation-timeline: view(); animation-range: entry 0% cover 30%; }\n@keyframes reveal { from { opacity: 0; translate: 0 24px; } to { opacity: 1; translate: 0 0; } }\n.progress { position: fixed; top: 0; left: 0; height: 3px; width: 100%; background: var(--accent); transform-origin: left;\n  animation: grow linear; animation-timeline: scroll(root); }\n@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }\n@supports not (animation-timeline: view()) { .reveal { animation: none; } }\n@media (prefers-reduced-motion: reduce) { .reveal, .progress { animation: none; } }\n```\nKhông cần JavaScript; trình duyệt chưa hỗ trợ vẫn hiện nội dung bình thường."
+ },
+ {
+  "id": "web_structured_data",
+  "kind": "web",
+  "title": "SEO: dữ liệu có cấu trúc (JSON-LD), sitemap, Open Graph",
+  "keys": [
+   "seo",
+   "json-ld",
+   "structured data",
+   "google",
+   "tim kiem",
+   "open graph",
+   "sitemap",
+   "xep hang"
+  ],
+  "body": "```html\n<script type=\"application/ld+json\">\n{ \"@context\": \"https://schema.org\", \"@type\": \"LocalBusiness\", \"name\": \"Cà phê Mộc\", \"address\": \"12 Lý Thường Kiệt, Hà Nội\",\n  \"openingHours\": \"Mo-Su 07:00-22:00\", \"telephone\": \"+84 912 345 678\", \"priceRange\": \"30.000₫ – 80.000₫\" }\n</script>\n<meta property=\"og:title\" content=\"Cà phê Mộc\"><meta property=\"og:image\" content=\"https://example.com/og.jpg\">\n```\n- Mỗi trang một `<title>` (≤ 60 ký tự) và `meta description` (≤ 160 ký tự) riêng; một `<h1>`; URL ngắn có ý nghĩa.\n- Loại phổ biến: `Organization`, `LocalBusiness`, `Product`, `Article`, `FAQPage`, `BreadcrumbList`."
+ },
+ {
+  "id": "web_print_css",
+  "kind": "web",
+  "title": "CSS khi in (CV, hoá đơn, tài liệu)",
+  "keys": [
+   "in an",
+   "print",
+   "cv",
+   "hoa don",
+   "invoice",
+   "xuat pdf",
+   "trang in",
+   "resume"
+  ],
+  "body": "```css\n@page { size: A4; margin: 16mm; }\n@media print {\n  nav, .no-print, button { display: none !important; }\n  body { background: #fff; color: #000; font-size: 11pt; }\n  a[href^=\"http\"]::after { content: \" (\" attr(href) \")\"; font-size: 9pt; }\n  section, tr, .card { break-inside: avoid; }\n  h2 { break-after: avoid; }\n}\n```\nNút \"Tải PDF\" chỉ cần gọi `window.print()` — người dùng chọn \"Lưu dưới dạng PDF\"."
  }
 ]

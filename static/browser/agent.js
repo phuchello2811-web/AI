@@ -511,6 +511,10 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite, checkSit
       }
       if (tests.length) state.tests = tests;
       const entries = knowledge.retrieve(text, state.analysis.topics, cfg.kb);
+      // Always remind of classic pitfalls; at "max" also of the method for hard problems.
+      for (const id of ctx.effort === "max" ? ["pitfalls", "problem_solving_method"] : ["pitfalls"]) {
+        if (knowledge.byId.has(id) && !entries.some((e) => e.id === id)) entries.push(knowledge.byId.get(id));
+      }
       state.kb = entries.map((e) => e.id);
       state.lessons = memory ? similarLessons(await memory.all(), `${state.analysis.summary || ""} ${text}`) : [];
       if (entries.length || state.lessons.length) {
@@ -728,19 +732,26 @@ export function createAgent({ llm, judge, knowledge, prompts, saveSite, checkSit
     // A complete program in an explanation must at least compile: check it once and let the model fix it.
     for (let round = 0; round < 2 && judge.runTests && ctx.effort !== "fast"; round++) {
       const code = lastCodeBlock(reply, CODE_LANGS);
-      if (!code || !/\bmain\s*\(|^\s*(import|def|print|for|if|n\s*=)/m.test(code[1])) return;
+      if (!code || !/\bmain\s*\(|^\s*(import|def|print|for|if|n\s*=)/m.test(code[1])) break;
       const id = `check${round}`;
       yield { type: "tool_start", id, name: "compile_check" };
       const result = yield* withStatus(id, (onStatus) => judge.runTests(code[0], code[1], [{ input: "" }], 2, onStatus));
       const syntax = code[0] === "python" && (result.tests[0] || {}).stderr && /SyntaxError|IndentationError/.test(result.tests[0].stderr);
       const error = result.verdict === "CE" ? result.compile_error : syntax ? result.tests[0].stderr : "";
       yield { type: "tool_result", id, name: "compile_check", output: { ok: !error, language: code[0], error } };
-      if (!error || round === 1) return;
+      if (!error || round === 1) break;
       conv.messages.push({ role: "user", content: `Code trong câu trả lời bị lỗi khi biên dịch/chạy:\n\`\`\`\n${error}\n\`\`\`\nHãy sửa và viết lại câu trả lời với code đúng.` });
       yield { type: "notice", text: "Code trong câu trả lời bị lỗi biên dịch, AI đang tự sửa." };
       reply = yield* streamReply(system, conv.messages);
       conv.messages.push({ role: "assistant", content: reply });
     }
+    // At "max", the model critiques its own answer once and rewrites it if it finds a mistake.
+    if (ctx.effort !== "max" || !reply.trim()) return;
+    conv.messages.push({ role: "user", content: prompts.chat_review });
+    yield { type: "notice", text: "AI đang tự phản biện câu trả lời (kiến thức, code, độ phức tạp, ví dụ)." };
+    const review = yield* streamReply(system, conv.messages);
+    conv.messages.push({ role: "assistant", content: review });
+    if (/^\s*\**ĐÚNG\**\s*\.?\s*$/i.test(review)) yield { type: "notice", kind: "success", text: "AI tự kiểm tra: câu trả lời đúng." };
   }
 
   return { runTurn };

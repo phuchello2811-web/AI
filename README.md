@@ -9,10 +9,10 @@
   - **GPT-OSS 20B** của OpenAI (qua [Pollinations.ai](https://pollinations.ai) và LLM7), model suy luận;
   - **Nemotron 3 Nano 30B** (NVIDIA), **Codestral** và **Mistral Nemo** (Mistral);
   - **ch.at** (model nhỏ của OpenAI): trả lời trong vài giây, gần như không giới hạn lượt. Dùng cho các bước phụ (đọc đề, phân tích, sinh test) để dành lượt của model mạnh cho bước viết lời giải, và là lựa chọn đầu tiên ở mức *Nhanh*.
-- **Model hàng đầu qua [Puter](https://puter.com)** (đăng nhập tài khoản Puter miễn phí, dùng theo hạn mức hằng tháng của chính bạn, trang web không tốn phí): Claude Opus 5.5, GPT-5.6 Sol, Claude Sonnet 5.5, GPT-5.6 Terra, **Qwen3.8 Max**, DeepSeek V4 Pro, Gemini 4 Argon, Grok 4.7, Gemini 3.8 Flash, Kimi K2.7 Code, GLM-5.3, MiniMax M3. Các bước phụ dùng Qwen3.8 Flash cho tiết kiệm hạn mức. Puter lỗi thì tự quay về nhóm miễn phí.
+- **Model hàng đầu qua [Puter](https://puter.com)** (đăng nhập tài khoản Puter miễn phí, dùng theo hạn mức hằng tháng của chính bạn, trang web không tốn phí): Claude Opus 5.5, GPT-5.6 Sol, Claude Sonnet 5.5, GPT-5.6 Terra, DeepSeek V4 Pro, Gemini 4 Argon, Grok 4.7, Gemini 3.8 Flash, Kimi K2.7 Code, GLM-5.3, MiniMax M3. Các bước phụ dùng Qwen3.8 Flash cho tiết kiệm hạn mức. Puter lỗi thì tự quay về nhóm miễn phí.
 - **Phối hợp nhiều model:** khi một model sửa mãi không đúng, bước "nghĩ lại từ đầu" giao cho **một model khác** để có góc nhìn mới.
 - **Giới hạn của các gói miễn phí** (đo thực tế): Pollinations trả lời 1 lần mỗi 30 giây và ~1.400 token mỗi lần; LLM7 có hạn mức token mỗi ngày cho từng model (MiniMax hết sau khoảng 2 câu trả lời dài). CodeMaster tự xếp hàng, tự đổi model khi một model hết lượt (menu model hiện trạng thái "sẵn sàng / chờ / hết lượt đến…"), và tự **viết tiếp nhiều lượt** khi câu trả lời bị cắt. Có khoá riêng (Pollinations, LLM7) thì nhập trong *Cài đặt* để bỏ giới hạn.
-- **Không giới hạn, chạy cả khi mất mạng:** chọn model *trong trình duyệt* (Qwen3.5 2B/4B/9B, Qwen2.5 Coder 7B) chạy bằng GPU của máy bạn qua [WebLLM](https://github.com/mlc-ai/web-llm); lần đầu tải 2–6 GB. Chỉ dùng khi chính bạn chọn, hoặc khi mọi máy chủ miễn phí đều không phản hồi.
+- **Qwen trên máy chủ, không cần tải về:** Qwen3.8 2.4T (bản lớn nhất của Qwen), Qwen3.8 Max, Qwen3.8 27B, Qwen3 Coder Flash, Qwen3.8 Flash — chạy qua Puter (đăng nhập miễn phí). Bản trước phải tải 2–6 GB model Qwen vào trình duyệt; phần đó đã bỏ.
 - **Chấm code ngay trong trình duyệt:** C/C++ biên dịch bằng [Clang WebAssembly](https://github.com/YoWASP/clang), Python chạy bằng [Pyodide](https://pyodide.org); được tải sẵn ngầm khi mở trang.
 - **Ghi nhớ bài đã giải:** mỗi bài AI giải đúng và đã kiểm chứng được lưu (ý tưởng chính) trong trình duyệt của bạn; gặp bài tương tự, AI được nhắc lại kinh nghiệm đó.
 - Giao diện sáng/tối, thanh chọn chế độ và mức suy nghĩ, công thức toán (KaTeX), nút sao chép/hỏi lại/tải code, danh sách trò chuyện theo ngày và tìm kiếm, phím tắt (Ctrl/Cmd+K: trò chuyện mới, /: gõ); cài được như ứng dụng (PWA), có ảnh xem trước khi chia sẻ link.
@@ -24,7 +24,7 @@
 **Giải bài tin** (VOI, IOI, Google Code Jam / Kick Start, Codeforces…)
 1. Đọc đề và lấy các test ví dụ (bỏ test nào không có trong đề, để tránh test bịa).
 2. **Phân tích đề**: định dạng (stdin, file `.INP/.OUT`, `Case #x:` của Code Jam, tương tác, cài hàm cho grader IOI), giới hạn thời gian, độ phức tạp mục tiêu suy ra từ giới hạn n, quan sát chính, trường hợp biên.
-3. **Tra thư viện kiến thức** (164 bài học: DP và các tối ưu DP, slope trick, CDQ, đồ thị, luồng, cây Kruskal, liên thông động, cấu trúc dữ liệu kể cả persistent/treap/Li Chao, xâu kể cả suffix automaton và cây palindrome, toán (Gauss, cơ sở XOR, Möbius, Miller–Rabin), tổ hợp, hình học, chiến thuật IOI/Code Jam, code mẫu đã kiểm chứng cho số lớn, NTT, Dinic, cặp ghép, SCC, bao lồi, mảng hậu tố, Manacher…, mẹo C++/Python/JavaScript, SQL, Git, code sạch, kiểm thử, gỡ lỗi, cùng 61 bài làm web và thiết kế giao diện: nguyên lý thiết kế, màu sắc và tương phản, hệ khoảng cách, nút, ô nhập, menu, thông báo, trạng thái tải/trống/lỗi, điều hướng, CSS hiện đại, chuyển động, trải nghiệm điện thoại, viết chữ trên giao diện, phong cách thiết kế, dashboard) và **các bài tương tự đã giải trước đây**, rồi đưa vào prompt.
+3. **Tra thư viện kiến thức** (191 bài học: DP và các tối ưu DP, slope trick, CDQ, đồ thị, luồng, cây Kruskal, liên thông động, cấu trúc dữ liệu kể cả persistent/treap/Li Chao, xâu kể cả suffix automaton và cây palindrome, toán (Gauss, cơ sở XOR, Möbius, Miller–Rabin), tổ hợp, hình học, chiến thuật IOI/Code Jam, code mẫu đã kiểm chứng cho số lớn, NTT, Dinic, cặp ghép, SCC, bao lồi, mảng hậu tố, Manacher…, mẹo C++/Python/JavaScript, SQL, Git, code sạch, kiểm thử, gỡ lỗi, cùng 61 bài làm web và thiết kế giao diện: nguyên lý thiết kế, màu sắc và tương phản, hệ khoảng cách, nút, ô nhập, menu, thông báo, trạng thái tải/trống/lỗi, điều hướng, CSS hiện đại, chuyển động, trải nghiệm điện thoại, viết chữ trên giao diện, phong cách thiết kế, dashboard) và **các bài tương tự đã giải trước đây**, rồi đưa vào prompt.
 4. Model giải theo **quy trình tư duy cố định**: chốt độ phức tạp, thử tay, cân nhắc ít nhất hai hướng, tìm phản ví dụ cho tham lam, liệt kê trường hợp biên, trace code trên test mẫu.
 5. Biên dịch và chấm trên test mẫu (AC / WA / TLE / RE / CE).
 6. **Stress test** (mức Tối đa): AI viết lời giải trâu và bộ sinh test nhỏ, rồi so sánh 150 test ngẫu nhiên, bắt được lỗi mà test mẫu bỏ sót.
@@ -41,11 +41,11 @@ Tab **Thư viện** trong giao diện cho xem và tìm toàn bộ kiến thức 
 
 **Làm web**: AI theo quy trình thiết kế (chọn phong cách, định nghĩa biến màu/chữ/khoảng cách trước, phân cấp, đủ trạng thái cho mọi thành phần, mobile first), viết một trang HTML hoàn chỉnh, rồi trang được chạy thử trong khung ẩn ở **khổ điện thoại 390px và máy tính 1280px**: lỗi JavaScript được sửa trước; sau đó **kiểm tra giao diện đo thật** (tràn ngang, chữ dưới 12px, tương phản dưới chuẩn WCAG, nút nhỏ hơn ngón tay, ảnh thiếu alt, nút không nhãn, thiếu viewport) và AI sửa các vấn đề đó (mức Kỹ, Tối đa); ở mức Tối đa còn **tự đánh giá lại** theo yêu cầu (tính năng thiếu, giao diện điện thoại, nội dung) và cải tiến, nếu bản cải tiến lỗi thì giữ bản cũ.
 
-**Hỏi đáp**: quy trình suy nghĩ riêng — với lỗi code thì tái hiện trên input cụ thể, tìm đúng dòng và nguyên nhân gốc; với thuật toán thì trực giác bằng ví dụ nhỏ, ý tưởng chính xác, chứng minh, độ phức tạp, bẫy thường gặp, gợi ý bài luyện tập. Chương trình hoàn chỉnh trong câu trả lời được **tự biên dịch thử**; lỗi biên dịch thì AI tự sửa.
+**Hỏi đáp**: quy trình suy nghĩ riêng — với lỗi code thì tái hiện trên input cụ thể, tìm đúng dòng và nguyên nhân gốc; với thuật toán thì trực giác bằng ví dụ nhỏ, ý tưởng chính xác, chứng minh, độ phức tạp, bẫy thường gặp, gợi ý bài luyện tập. Chương trình hoàn chỉnh trong câu trả lời được **tự biên dịch thử**; lỗi biên dịch thì AI tự sửa. Ở mức Tối đa, AI còn **tự phản biện** câu trả lời (kiến thức, code, độ phức tạp, ví dụ) và viết lại nếu phát hiện sai.
 
 ## Chạy bằng Ollama (tuỳ chọn)
 
-Không bắt buộc. Dùng khi muốn chạy model qua Ollama thay vì trong trình duyệt (ví dụ máy không có WebGPU, hoặc muốn dùng model Ollama khác). Khi server này đang chạy, giao diện tự dùng nó.
+Không bắt buộc. Dùng khi muốn chạy model trên chính máy mình qua Ollama (offline, hoặc dùng model Ollama khác). Khi server này đang chạy, giao diện tự dùng nó.
 
 **Cần có**
 - [Ollama](https://ollama.com/download) (chạy model AI mã nguồn mở)
@@ -94,7 +94,7 @@ Bật **Suy nghĩ** giúp giải bài khó đúng hơn nhưng chậm hơn nhiề
 | `sandbox.py` | Biên dịch, chạy, chấm, stress test |
 | `server.py` | FastAPI: chat (SSE), API chấm, xem trước web, lưu lịch sử vào `data/` |
 | `index.html`, `static/` | Giao diện web (mở qua server, Go Live hoặc GitHub Pages) |
-| `static/browser/` | Bản chạy hoàn toàn trong trình duyệt: model (WebLLM), quy trình giải bài, trình chấm WebAssembly, lưu lịch sử (IndexedDB) |
+| `static/browser/` | Bản web: chọn model (máy chủ miễn phí, Puter), quy trình giải bài và làm web, trình chấm WebAssembly, kiểm tra giao diện, lưu lịch sử (IndexedDB) |
 | `static/prompts.json`, `static/knowledge.json` | Prompt và thư viện kiến thức, dùng chung cho cả hai bản |
 | `.vscode/` | Cấu hình Live Server và task tự bật server |
 

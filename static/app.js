@@ -877,8 +877,8 @@ els.model.onchange = () => { savePref("model", els.model.value); updateThinkTogg
 
 const GROUPS = [
   ["cloud", "Miễn phí, dùng ngay", "Không cần tài khoản. Tự xếp hàng khi máy chủ bận."],
-  ["puter", "Model hàng đầu qua Puter", "Đăng nhập Puter miễn phí, dùng theo hạn mức hằng tháng của bạn."],
-  ["local", "Chạy trong trình duyệt", "Tải về một lần, sau đó không giới hạn, dùng được khi mất mạng."],
+  ["qwen", "Qwen trên máy chủ (qua Puter)", "Không cần tải về. Đăng nhập Puter miễn phí, dùng theo hạn mức hằng tháng của bạn."],
+  ["puter", "Model hàng đầu qua Puter", "Claude, GPT, Gemini, DeepSeek… cùng tài khoản Puter."],
   ["", "Model trên máy", ""],
 ];
 
@@ -904,7 +904,8 @@ function renderModelMenu() {
   menu.innerHTML = GROUPS.map(([provider, title, hint]) => {
     const items = (state.models || []).filter((m) => (m.provider || "") === provider);
     if (!items.length) return "";
-    const action = provider === "puter"
+    const viaPuter = provider === "puter" || provider === "qwen";
+    const action = viaPuter
       ? (live.puter ? `<span class="chip ok">đã đăng nhập</span>` : `<button type="button" class="btn small primary" data-puter="in">${icon("login")}Đăng nhập Puter</button>`)
       : "";
     return `<div class="mm-group"><div class="mm-head"><div><b>${title}</b>${hint ? `<span>${hint}</span>` : ""}</div>${action}</div>`
@@ -912,7 +913,7 @@ function renderModelMenu() {
         let chip = "";
         if (m.free) { const [kind, text] = waitText(live.free[m.free] || 0); chip = `<span class="chip ${kind}">${text}</span>`; }
         else if (m.name === "cloud") chip = `<span class="chip ok">khuyên dùng</span>`;
-        else if (provider === "puter" && !live.puter) chip = `<span class="chip">cần đăng nhập</span>`;
+        else if (viaPuter && !live.puter) chip = `<span class="chip">cần đăng nhập</span>`;
         return `<button type="button" class="mm-item${m.name === els.model.value ? " active" : ""}" role="option" data-name="${esc(m.name)}">
           <span class="mm-text"><b>${esc(m.label || m.name)}</b>${m.note ? `<span>${esc(m.note)}</span>` : ""}</span>${chip}
           ${m.name === els.model.value ? icon("check") : ""}</button>`;
@@ -948,7 +949,7 @@ $("#modelMenu").addEventListener("click", (e) => {
   toggleModelMenu(false);
   // Picking a Puter model is a click, so the sign-in window may open right away.
   const m = currentModel();
-  if (m && m.provider === "puter" && state.local && !state.local.modelStatus().puter) puterSignIn();
+  if (m && (m.provider === "puter" || m.provider === "qwen") && state.local && !state.local.modelStatus().puter) puterSignIn();
 });
 document.addEventListener("click", () => toggleModelMenu(false));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") toggleModelMenu(false); });

@@ -879,6 +879,7 @@ const GROUPS = [
   ["cloud", "Miễn phí, dùng ngay", "Không cần tài khoản. Tự xếp hàng khi máy chủ bận."],
   ["qwen", "Qwen trên máy chủ (qua Puter)", "Không cần tải về. Đăng nhập Puter miễn phí, dùng theo hạn mức hằng tháng của bạn."],
   ["puter", "Model hàng đầu qua Puter", "Claude, GPT, Gemini, DeepSeek… cùng tài khoản Puter."],
+  ["local", "Qwen tải về máy (dùng khi mất mạng)", "Tải một lần (2–6 GB), sau đó chạy ngay trên máy bạn, không cần mạng, không giới hạn."],
   ["", "Model trên máy", ""],
 ];
 
@@ -1023,5 +1024,11 @@ document.addEventListener("keydown", (e) => {
 
 els.messages.addEventListener("scroll", () => $("#scrollDown").classList.toggle("hidden", nearBottom()));
 $("#scrollDown").onclick = () => scrollDown(true);
+
+// Offline support (sw.js): the app and its libraries are cached so it opens without a network, and a
+// downloaded Qwen model then answers offline.
+if ("serviceWorker" in navigator && (location.protocol === "https:" || ["127.0.0.1", "localhost"].includes(location.hostname))) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
 
 connect();

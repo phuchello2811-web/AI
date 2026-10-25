@@ -152,7 +152,8 @@ export async function request(path, { method = "GET", body } = {}) {
 }
 
 async function health() {
-  const models = llm.MODELS.map((m) => ({
+  const gpu = await llm.hasWebGPU();  // downloadable Qwen models need WebGPU
+  const models = llm.MODELS.filter((m) => m.provider !== "local" || gpu).map((m) => ({
     name: m.name, label: m.label, note: m.note, provider: m.provider, free: m.free || null, capabilities: ["completion"],
   }));
   return { browser: true, ollama: true, models, languages: judge.LANGUAGES };

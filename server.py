@@ -241,6 +241,11 @@ def index():
     return FileResponse(ROOT / "index.html")
 
 
+@app.get("/sw.js")
+def service_worker():
+    return FileResponse(ROOT / "sw.js", media_type="text/javascript")
+
+
 @app.get("/manifest.webmanifest")
 def manifest():
     return FileResponse(ROOT / "manifest.webmanifest", media_type="application/manifest+json")

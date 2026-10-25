@@ -172,11 +172,13 @@ async function* request(messages, { schema = null, maxTokens = 0, effort = "medi
     }
     if (p.gapMs && !key) state[id] = { nextAt: Date.now() + p.gapMs };
 
-    const body = { model: p.model, messages, stream: !schema, ...(p.extra || {}) };
+    // These services take text only (images were already read into the text by OCR).
+    const plain = messages.map((m) => ({ role: m.role, content: m.content }));
+    const body = { model: p.model, messages: plain, stream: !schema, ...(p.extra || {}) };
     if (p.effort) body.reasoning_effort = effort;
     if (schema) {
       if (p.schema) body.response_format = { type: "json_schema", json_schema: { name: "result", strict: true, schema: strict(schema) } };
-      else body.messages = withSchemaInstruction(messages, schema);
+      else body.messages = withSchemaInstruction(plain, schema);
       // Reasoning counts against max_tokens, so only short structured replies are capped.
       if (maxTokens) body.max_tokens = maxTokens + 2000;
     }

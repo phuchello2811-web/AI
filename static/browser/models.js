@@ -19,8 +19,10 @@ const LOCAL_MODELS = [
 export const MODELS = [
   { name: CLOUD, label: "Tự động", note: "Model miễn phí mạnh nhất còn lượt (MiniMax M2.7, GPT-OSS 20B…)", provider: "cloud", strong: true },
   ...cloud.FREE_MODELS.map((m) => ({ name: `free:${m.id}`, label: m.label, note: m.note, provider: "cloud", strong: true, free: m.id })),
-  ...puter.QWEN_MODELS.map((m) => ({ name: `puter:${m.id}`, label: m.label, note: m.note, provider: "qwen", strong: true, puter: m.id })),
-  ...puter.MODELS.map((m) => ({ name: `puter:${m.id}`, label: m.label, note: m.note, provider: "puter", strong: true, puter: m.id })),
+  ...puter.QWEN_MODELS.map((m) => ({ name: `puter:${m.id}`, label: m.label, note: m.vision ? `${m.note} · đọc được ảnh` : m.note,
+    provider: "qwen", strong: true, puter: m.id, vision: !!m.vision })),
+  ...puter.MODELS.map((m) => ({ name: `puter:${m.id}`, label: m.label, note: m.vision ? `${m.note} · đọc được ảnh` : m.note,
+    provider: "puter", strong: true, puter: m.id, vision: !!m.vision })),
   ...LOCAL_MODELS.map((m) => ({ ...m, provider: "local" })),
 ];
 const byName = new Map(MODELS.map((m) => [m.name, m]));
@@ -74,7 +76,7 @@ async function cachedLocalModel() {
 
 async function* viaLocal(name, messages, opts) {
   yield* loadLocal(name, opts.signal);
-  yield* (await local()).chat(messages, opts);
+  yield* (await local()).chat(messages.map((m) => ({ role: m.role, content: m.content })), opts);
 }
 
 /** A Puter model other than `current`, for a second opinion. */
@@ -86,7 +88,13 @@ async function* viaPuter(messages, opts, info) {
   const helper = opts.route === "helper" || opts.schema;
   let model = helper ? puter.HELPER_MODEL : info.puter;
   if (!helper && opts.avoid && opts.avoid === info.label) model = otherPuterModel(info.puter);
-  const msgs = opts.schema ? cloud.withSchemaInstruction(messages, opts.schema) : messages;
+  // Models that can see get the images as OpenAI-style content parts; others (and helper requests) get the
+  // text only, which already contains what OCR read from the images.
+  const see = info.vision && !helper && model === info.puter;
+  const asParts = (m) => see && m.images && m.images.length
+    ? { role: m.role, content: [{ type: "text", text: m.content }, ...m.images.map((url) => ({ type: "image_url", image_url: { url } }))] }
+    : { role: m.role, content: m.content };
+  const msgs = opts.schema ? cloud.withSchemaInstruction(messages.map(asParts), opts.schema) : messages.map(asParts);
   try {
     yield* puter.chat(msgs, { model, signal: opts.signal });
   } catch (e) {

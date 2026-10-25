@@ -7,26 +7,27 @@ const SCRIPT = "https://js.puter.com/v2/";
 export const HELPER_MODEL = "qwen3.8-flash";
 
 export const MODELS = [
-  { id: "claude-opus-5-5", label: "Claude Opus 5.5", note: "Mạnh nhất của Anthropic cho bài cực khó; rất tốn hạn mức" },
-  { id: "gpt-5.6-sol", label: "GPT-5.6 Sol", note: "Mạnh nhất của OpenAI; rất tốn hạn mức" },
-  { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5", note: "Rất mạnh về lập trình; tốn hạn mức nhiều" },
-  { id: "gpt-5.6-terra", label: "GPT-5.6 Terra", note: "OpenAI, suy luận mạnh" },
+  { id: "claude-opus-5-5", label: "Claude Opus 5.5", note: "Mạnh nhất của Anthropic cho bài cực khó; rất tốn hạn mức", vision: true },
+  { id: "gpt-5.6-sol", label: "GPT-5.6 Sol", note: "Mạnh nhất của OpenAI; rất tốn hạn mức", vision: true },
+  { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5", note: "Rất mạnh về lập trình; tốn hạn mức nhiều", vision: true },
+  { id: "gpt-5.6-terra", label: "GPT-5.6 Terra", note: "OpenAI, suy luận mạnh", vision: true },
   { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro", note: "Suy luận toán và thuật toán, giá vừa" },
-  { id: "gemini-4-argon", label: "Gemini 4 Argon", note: "Mạnh nhất của Google; tốn hạn mức" },
-  { id: "grok-4.7", label: "Grok 4.7", note: "xAI, suy luận mạnh" },
-  { id: "gemini-3.8-flash", label: "Gemini 3.8 Flash", note: "Google, nhanh, ngữ cảnh rất dài" },
-  { id: "kimi-k2.7-code", label: "Kimi K2.7 Code", note: "Moonshot, chuyên viết code" },
+  { id: "gemini-4-argon", label: "Gemini 4 Argon", note: "Mạnh nhất của Google; tốn hạn mức", vision: true },
+  { id: "grok-4.7", label: "Grok 4.7", note: "xAI, suy luận mạnh", vision: true },
+  { id: "gemini-3.8-flash", label: "Gemini 3.8 Flash", note: "Google, nhanh, ngữ cảnh rất dài", vision: true },
+  { id: "kimi-k2.7-code", label: "Kimi K2.7 Code", note: "Moonshot, chuyên viết code", vision: true },
   { id: "glm-5.3", label: "GLM-5.3", note: "Zhipu, mạnh về code và web" },
-  { id: "minimax-m3", label: "MiniMax M3", note: "Rẻ, mạnh, ngữ cảnh 1 triệu token" },
+  { id: "minimax-m3", label: "MiniMax M3", note: "Rẻ, mạnh, ngữ cảnh 1 triệu token", vision: true },
 ];
 
 // The Qwen family runs on Puter's servers too: no multi-GB download into the browser.
 export const QWEN_MODELS = [
   { id: "qwen3.8-2.4t-a95b", label: "Qwen3.8 2.4T", note: "Bản lớn nhất của Qwen (2.400 tỉ tham số), cho bài khó nhất" },
-  { id: "qwen3.8-max", label: "Qwen3.8 Max", note: "Mạnh, cân bằng giữa chất lượng và hạn mức" },
-  { id: "qwen3.8-27b", label: "Qwen3.8 27B", note: "Mã nguồn mở, nhanh, tốn ít hạn mức" },
+  { id: "qwen3.8-max", label: "Qwen3.8 Max", note: "Mạnh, cân bằng giữa chất lượng và hạn mức", vision: true },
+  { id: "qwen3-vl-plus", label: "Qwen3-VL Plus", note: "Chuyên nhìn ảnh: giao diện, sơ đồ, hình vẽ, ảnh chụp đề", vision: true },
+  { id: "qwen3.8-27b", label: "Qwen3.8 27B", note: "Mã nguồn mở, nhanh, tốn ít hạn mức", vision: true },
   { id: "qwen3-coder-flash", label: "Qwen3 Coder Flash", note: "Chuyên viết code, rất nhanh" },
-  { id: "qwen3.8-flash", label: "Qwen3.8 Flash", note: "Rẻ nhất, hợp hỏi đáp nhanh" },
+  { id: "qwen3.8-flash", label: "Qwen3.8 Flash", note: "Rẻ nhất, hợp hỏi đáp nhanh", vision: true },
 ];
 const ALL = [...MODELS, ...QWEN_MODELS];
 

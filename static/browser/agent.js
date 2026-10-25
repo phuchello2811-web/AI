@@ -150,7 +150,8 @@ function trimHistory(messages, systemChars, totalChars = HISTORY_CHARS) {
   for (let i = messages.length - 1; i >= 0; i--) {
     total += messages[i].content.length;
     if (kept.length && total > budget) break;
-    kept.unshift({ role: messages[i].role, content: messages[i].content });
+    kept.unshift(messages[i].images ? { role: messages[i].role, content: messages[i].content, images: messages[i].images }
+      : { role: messages[i].role, content: messages[i].content });
   }
   while (kept.length > 1 && kept[0].role !== "user") kept.shift();
   return kept;

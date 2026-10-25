@@ -158,11 +158,14 @@ function scrollDown(force) {
   if (force || nearBottom()) els.messages.scrollTop = els.messages.scrollHeight;
 }
 
-function addUserMessage(text, imageCount) {
+// `images`: a count (history) or a list of data: URLs (just sent, shown as thumbnails).
+function addUserMessage(text, images) {
   els.welcome.classList.add("hidden");
   const div = document.createElement("div");
   div.className = "msg user";
-  const imgs = imageCount ? `<span class="img-tag">${icon("clip")} ${imageCount} ảnh đính kèm</span>` : "";
+  const imgs = Array.isArray(images) && images.length
+    ? `<span class="img-row">${images.map((u) => `<img src="${esc(u)}" alt="ảnh đính kèm">`).join("")}</span>`
+    : images ? `<span class="img-tag">${icon("clip")} ${images} ảnh đính kèm</span>` : "";
   div.innerHTML = `<div class="bubble">${imgs}${esc(text)}</div>`;
   els.messages.appendChild(div);
   scrollDown(true);
@@ -386,6 +389,7 @@ class Turn {
       run_code: ["cpu", "Chạy thử code"], stress_test: ["dice", "Stress test"], save_web_files: ["layout", "Lưu và chạy thử website"],
       extract_tests: ["list", "Lấy test mẫu từ đề"], analyze_problem: ["compass", "Phân tích đề"], knowledge: ["book", "Tra thư viện kiến thức"],
       perf_test: ["zap", "Kiểm tra tốc độ trên test lớn nhất"], compile_check: ["check", "Kiểm tra code biên dịch được"],
+      read_image: ["file", "Đọc chữ trong ảnh"],
     };
     const busy = { extract_tests: "đang đọc đề…", analyze_problem: "đang phân tích…", knowledge: "đang tra…",
                    stress_test: "đang viết lời giải trâu và sinh test…", save_web_files: "đang chạy thử trang…" };
@@ -466,6 +470,11 @@ class Turn {
       sum.textContent = out.result === "ALL_PASSED" ? `${out.iterations_passed} test ngẫu nhiên đều khớp` : `lệch ở seed ${out.seed ?? "?"}`;
       body.insertAdjacentHTML("beforeend", `<pre>${esc(JSON.stringify(out, null, 2))}</pre>`);
       if (out.result !== "ALL_PASSED") t.el.classList.add("open");
+    } else if (ev.name === "read_image") {
+      const n = (out.text || "").length;
+      setBadge(n ? "OK" : "TLE", n ? `${out.confidence}%` : "không có chữ");
+      sum.textContent = n ? `ảnh ${out.index}: ${out.text.split("\n")[0].slice(0, 80)}` : `ảnh ${out.index}: không đọc được chữ nào`;
+      body.innerHTML = n ? `<pre>${esc(out.text)}</pre>` : `<p class="muted">Chọn một model "đọc được ảnh" trong menu để AI xem chính hình ảnh.</p>`;
     } else if (ev.name === "compile_check") {
       setBadge(out.ok ? "OK" : "CE", out.ok ? "Biên dịch được" : "Lỗi");
       sum.textContent = `${LANG_NAMES[out.language] || out.language}` + (out.ok ? "" : " · đang nhờ AI sửa");
@@ -572,7 +581,7 @@ async function send(text) {
     history.replaceState(null, "", "#c=" + c.id);
   }
   const images = state.images.map((im) => ({ media_type: im.media_type, data: im.data }));
-  addUserMessage(text, images.length);
+  addUserMessage(text, state.images.map((im) => im.url));
   els.input.value = "";
   autosize();
   state.images = [];
@@ -837,6 +846,14 @@ els.input.addEventListener("keydown", (e) => {
   }
 });
 els.input.addEventListener("input", autosize);
+// Drop images anywhere on the composer.
+$("#composer").addEventListener("dragover", (e) => { if ([...e.dataTransfer.items].some((i) => i.kind === "file")) { e.preventDefault(); $("#composer").classList.add("drop"); } });
+$("#composer").addEventListener("dragleave", () => $("#composer").classList.remove("drop"));
+$("#composer").addEventListener("drop", (e) => {
+  e.preventDefault();
+  $("#composer").classList.remove("drop");
+  [...e.dataTransfer.files].forEach(addImageFile);
+});
 els.input.addEventListener("paste", (e) => {
   for (const item of e.clipboardData.items) if (item.kind === "file") addImageFile(item.getAsFile());
 });
@@ -955,6 +972,29 @@ $("#modelMenu").addEventListener("click", (e) => {
 document.addEventListener("click", () => toggleModelMenu(false));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") toggleModelMenu(false); });
 setInterval(() => { if (!$("#modelMenu").classList.contains("hidden")) renderModelMenu(); }, 1000);
+
+/* ================= Install as an app, download generated sites ================= */
+
+let installPrompt = null;
+addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installPrompt = e; $("#installBtn").classList.remove("hidden"); });
+addEventListener("appinstalled", () => $("#installBtn").classList.add("hidden"));
+$("#installBtn").onclick = async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice;
+  installPrompt = null;
+  $("#installBtn").classList.add("hidden");
+};
+
+$("#downloadSite").onclick = () => {
+  const page = state.files.find((f) => f.path === "index.html");
+  if (!page) return alert("Chưa có trang nào để tải.");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([page.content], { type: "text/html;charset=utf-8" }));
+  a.download = "index.html";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
 
 /* ================= Theme & search ================= */
 

@@ -6,6 +6,7 @@ import * as llm from "./models.js";
 import * as judge from "./judge.js";
 import { createAgent, createKnowledge, EFFORTS } from "./agent.js";
 import { uiAudit } from "./ui-audit.js";
+import { readImage } from "./ocr.js";
 
 const [prompts, knowledgeEntries] = await Promise.all([
   fetch(new URL("../prompts.json", import.meta.url)).then((r) => r.json()),
@@ -168,17 +169,28 @@ export function warmup() {
 export async function* chat(body, signal) {
   if (!(body.mode in prompts.system)) fail("bad mode");
   if (!(body.effort in EFFORTS)) fail("bad effort");
-  if (body.images && body.images.length) fail("Model chạy trong trình duyệt chưa đọc được ảnh. Hãy dán đề dạng chữ.");
+  const images = (body.images || []).slice(0, 4).map((im) => `data:${im.media_type};base64,${im.data}`);
   const conv = (await getConv(body.conversation_id)) || fail("conversation not found");
-  conv.messages.push({ role: "user", content: body.text });
-  conv.events.push({ type: "user", text: body.text, images: 0 });
-  if (conv.events.length === 1) conv.title = (body.text.trim().split("\n")[0] || "Cuộc trò chuyện mới").slice(0, 60);
+  conv.events.push({ type: "user", text: body.text, images: images.length });
+  if (conv.events.length === 1) conv.title = (body.text.trim().split("\n")[0] || (images.length ? "Ảnh đề bài" : "Cuộc trò chuyện mới")).slice(0, 60);
   yield { type: "title", title: conv.title };
-  await putConv(conv);
 
   // Live progress (status, tool_status) is shown but not stored.
   const record = (ev) => { if (ev.type !== "tool_status" && ev.type !== "status") conv.events.push(ev); return ev; };
   try {
+    // Images: their text is read here (OCR) and added to the message, so every model can use it; the
+    // images themselves stay on the message for models that can see (models.js decides).
+    let content = body.text || "";
+    for (const [i, url] of images.entries()) {
+      const id = `ocr${i}`;
+      yield record({ type: "tool_start", id, name: "read_image" });
+      const result = yield* progress(id, (onStatus) => readImage(url, onStatus));
+      yield record({ type: "tool_result", id, name: "read_image", output: { ...result, index: i + 1 } });
+      if (result.text) content += `\n\n[Chữ đọc được từ ảnh ${i + 1}, độ tin cậy ${result.confidence}%]\n${result.text}`;
+    }
+    if (!content.trim()) content = "(Người dùng gửi ảnh nhưng không đọc được chữ nào trong ảnh.)";
+    conv.messages.push(images.length ? { role: "user", content, images } : { role: "user", content });
+    await putConv(conv);
     if (!llm.MODELS.some((m) => m.name === body.model)) fail(`Không có model ${body.model}`);
     for await (const ev of agent.runTurn(conv, { mode: body.mode, model: body.model, think: body.think, effort: body.effort, signal })) {
       if (signal && signal.aborted) break;
@@ -197,6 +209,20 @@ export async function* chat(body, signal) {
 export const modelStatus = () => llm.status();
 export const puterSignIn = () => llm.puterSignIn();
 export const puterSignOut = () => llm.puterSignOut();
+
+/** Await `start(onStatus)`, yielding its latest status as tool_status events. */
+async function* progress(id, start) {
+  let latest = null, wake = null, done = false, result, error;
+  start((text) => { latest = text; if (wake) wake(); }).then((r) => { result = r; }, (e) => { error = e; })
+    .finally(() => { done = true; if (wake) wake(); });
+  while (!done) {
+    if (latest !== null) { yield { type: "tool_status", id, text: latest }; latest = null; }
+    await new Promise((r) => { wake = r; setTimeout(r, 400); });
+    wake = null;
+  }
+  if (error) throw error;
+  return result;
+}
 
 export function stop() {
   llm.stop();

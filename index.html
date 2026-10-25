@@ -87,6 +87,7 @@
     <div class="conv-list" id="convList"></div>
     <div class="sidebar-foot">
       <div id="status">Đang khởi động…</div>
+      <button class="icon-btn hidden" id="installBtn" title="Cài CodeMaster thành ứng dụng trên máy"><svg class="i"><use href="#i-download"/></svg></button>
       <button class="icon-btn" id="themeBtn" title="Đổi giao diện sáng / tối"><svg class="i"><use href="#i-moon"/></svg></button>
       <button class="icon-btn" id="settingsBtn" title="Cài đặt"><svg class="i"><use href="#i-settings"/></svg></button>
     </div>
@@ -115,7 +116,7 @@
       <div class="welcome" id="welcome">
         <img class="hero-logo" src="static/logo.svg" alt="" width="64" height="64">
         <h1>Hôm nay bạn muốn giải bài gì?</h1>
-        <p>Dán đề bài tin học (VOI, IOI, Code Jam, Codeforces) hoặc mô tả một website. AI phân tích đề, tra thư viện thuật toán, viết code, tự chấm test, stress test với lời giải trâu và tự sửa khi sai.</p>
+        <p>Dán đề bài tin học (VOI, IOI, Code Jam, Codeforces), gửi ảnh chụp đề, hoặc mô tả một website / web app. AI phân tích đề, tra thư viện thuật toán, viết code, tự chấm test, stress test với lời giải trâu và tự sửa khi sai.</p>
         <div class="stats">
           <div><b id="statLessons">120</b><span>bài học thuật toán và web</span></div>
           <div><b id="statModels">17</b><span>model AI để chọn</span></div>
@@ -138,8 +139,11 @@
           <button class="starter" data-mode="web" data-prompt="Làm game rắn săn mồi chơi trên trình duyệt: điều khiển bằng phím mũi tên và vuốt trên điện thoại, có điểm, điểm cao lưu lại, tăng tốc dần, nút tạm dừng và chơi lại.">
             <span class="s-icon"><svg class="i"><use href="#i-play"/></svg></span><b>Làm game</b><span>Canvas, điều khiển phím và cảm ứng</span>
           </button>
-          <button class="starter" data-mode="chat" data-prompt="Code C++ của tôi bị WA, giúp tôi tìm lỗi và sửa:&#10;&#10;```cpp&#10;// dán code vào đây&#10;```">
-            <span class="s-icon"><svg class="i"><use href="#i-bug"/></svg></span><b>Tìm lỗi code</b><span>Tìm test sai và sửa</span>
+          <button class="starter" data-mode="web" data-prompt="Làm web app quản lý chi tiêu cá nhân: thêm khoản thu/chi theo danh mục, tổng theo tháng, biểu đồ theo danh mục, lọc theo ngày, tìm kiếm, sao lưu và khôi phục dữ liệu, chạy tốt trên điện thoại.">
+            <span class="s-icon"><svg class="i"><use href="#i-cpu"/></svg></span><b>Làm web app</b><span>Nhiều màn hình, lưu dữ liệu, xuất/nhập</span>
+          </button>
+          <button class="starter" data-mode="chat" data-prompt="Code C++ của tôi bị WA, giúp tôi tìm lỗi và sửa (có thể đính kèm ảnh chụp code hoặc đề bài):&#10;&#10;```cpp&#10;// dán code vào đây&#10;```">
+            <span class="s-icon"><svg class="i"><use href="#i-bug"/></svg></span><b>Tìm lỗi code</b><span>Dán code hoặc gửi ảnh chụp</span>
           </button>
           <button class="starter" data-mode="chat" data-prompt="Hướng dẫn chiến thuật làm bài IOI: chia subtask, ăn điểm từng phần, cách viết hàm theo grader, và lấy ví dụ bài IOI 2016 Aliens (Aliens trick).">
             <span class="s-icon"><svg class="i"><use href="#i-book"/></svg></span><b>Học thuật toán</b><span>Chiến thuật IOI, giải thích kèm code</span>
@@ -160,7 +164,7 @@
       <div class="attachments" id="attachments"></div>
       <textarea id="input" rows="1" placeholder="Dán đề bài hoặc mô tả website… (Enter để gửi, Shift+Enter xuống dòng)"></textarea>
       <div class="composer-bar">
-        <label class="icon-btn" title="Đính kèm ảnh đề bài">
+        <label class="icon-btn" title="Đính kèm ảnh: đề bài, code, lỗi, giao diện (hoặc dán / kéo thả ảnh vào đây)">
           <svg class="i"><use href="#i-clip"/></svg><input type="file" id="fileInput" accept="image/*" multiple hidden>
         </label>
         <select id="mode" title="Chế độ" hidden>
@@ -226,6 +230,7 @@
         <select id="fileSelect"><option value="">Xem trước</option></select>
         <button class="btn ghost small" id="reloadPreview"><svg class="i"><use href="#i-refresh"/></svg>Tải lại</button>
         <a class="btn ghost small" id="openTab" target="_blank" rel="noopener"><svg class="i"><use href="#i-external"/></svg>Tab mới</a>
+        <button class="btn ghost small" id="downloadSite" title="Tải trang về máy thành file index.html"><svg class="i"><use href="#i-download"/></svg>Tải file</button>
       </div>
       <iframe id="previewFrame" sandbox="allow-scripts allow-forms allow-modals allow-popups"></iframe>
       <pre class="file-view hidden" id="fileView"><code></code></pre>
@@ -255,6 +260,7 @@
       <input type="password" id="llm7Key" autocomplete="off" placeholder="token từ token.llm7.io">
     </label>
     <p class="muted">Qwen và các model hàng đầu chạy trên máy chủ của Puter, không cần tải gì về máy: bấm "Đăng nhập Puter" trong menu model (tài khoản miễn phí, dùng theo hạn mức hằng tháng của bạn).</p>
+    <p class="muted">Cài CodeMaster như một ứng dụng: trên Chrome/Edge bấm biểu tượng tải ở góc dưới thanh bên (hoặc biểu tượng cài trên thanh địa chỉ); trên iPhone/iPad mở bằng Safari, bấm Chia sẻ → "Thêm vào MH chính".</p>
     <div class="dialog-actions">
       <button class="btn ghost" value="cancel">Đóng</button>
       <button class="btn primary" id="saveSettings" value="save">Lưu</button>

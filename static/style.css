@@ -446,6 +446,11 @@ code { font-family: var(--mono); }
 .scroll-down:hover { background: var(--bg-3); }
 .conv-list .conv-label { padding: 10px 10px 4px; }
 
+/* ---------- images in messages, drop target ---------- */
+.msg.user .img-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.msg.user .img-row img { width: 120px; height: 90px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+.composer.drop { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
 .mobile-only { display: none; }
 
 @media (max-width: 1000px) {

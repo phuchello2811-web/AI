@@ -2935,5 +2935,74 @@
    "resume"
   ],
   "body": "```css\n@page { size: A4; margin: 16mm; }\n@media print {\n  nav, .no-print, button { display: none !important; }\n  body { background: #fff; color: #000; font-size: 11pt; }\n  a[href^=\"http\"]::after { content: \" (\" attr(href) \")\"; font-size: 9pt; }\n  section, tr, .card { break-inside: avoid; }\n  h2 { break-after: avoid; }\n}\n```\nNút \"Tải PDF\" chỉ cần gọi `window.print()` — người dùng chọn \"Lưu dưới dạng PDF\"."
+ },
+ {
+  "id": "web_app_architecture",
+  "kind": "web",
+  "title": "Kiến trúc web app một file: trạng thái, màn hình, lưu dữ liệu",
+  "keys": [
+   "web app",
+   "ung dung web",
+   "app",
+   "ung dung",
+   "quan ly",
+   "spa",
+   "single page",
+   "phan mem",
+   "he thong quan ly",
+   "crud"
+  ],
+  "body": "```js\nconst store = { state: load(), listeners: new Set() };\nfunction load() { try { return JSON.parse(localStorage.getItem(\"app-state\")) || { items: [], settings: {} }; } catch { return { items: [], settings: {} }; } }\nfunction update(change) {                        // mọi thay đổi dữ liệu đi qua đây\n  change(store.state);\n  try { localStorage.setItem(\"app-state\", JSON.stringify(store.state)); } catch {}\n  store.listeners.forEach((fn) => fn(store.state));\n}\nconst subscribe = (fn) => (store.listeners.add(fn), () => store.listeners.delete(fn));\n```\n- Khung app: thanh trên (tên, tìm kiếm, tài khoản) + điều hướng (thanh bên trên máy tính, thanh dưới trên điện thoại) + vùng nội dung theo màn hình.\n- Mỗi màn hình là một hàm `render(state)` vẽ lại toàn bộ vùng của nó; sự kiện dùng ủy quyền (`addEventListener` trên vùng cha).\n- Đủ chức năng của một app thật: thêm/sửa/xoá có xác nhận, tìm kiếm, lọc, sắp xếp, trạng thái rỗng, thống kê, xuất/nhập dữ liệu, giao diện sáng/tối."
+ },
+ {
+  "id": "web_spa_router",
+  "kind": "web",
+  "title": "Điều hướng nhiều màn hình bằng hash router — code",
+  "keys": [
+   "router",
+   "dieu huong trang",
+   "nhieu trang",
+   "nhieu man hinh",
+   "hash",
+   "chuyen trang",
+   "routing",
+   "trang con"
+  ],
+  "body": "```js\nconst routes = {\n  \"\": () => \"<h1>Tổng quan</h1>\",\n  \"tasks\": () => \"<h1>Công việc</h1>\",\n  \"tasks/:id\": ({ id }) => `<h1>Công việc #${id}</h1>`,\n  \"settings\": () => \"<h1>Cài đặt</h1>\",\n};\nfunction match(path) {\n  for (const [pattern, view] of Object.entries(routes)) {\n    const a = pattern.split(\"/\"), b = path.split(\"/\"), params = {};\n    if (a.length !== b.length) continue;\n    if (a.every((part, i) => (part.startsWith(\":\") ? ((params[part.slice(1)] = decodeURIComponent(b[i])), true) : part === b[i]))) return () => view(params);\n  }\n  return () => \"<h1>Không tìm thấy trang</h1>\";\n}\nfunction router() {\n  const path = location.hash.replace(/^#\\/?/, \"\");\n  document.querySelector(\"#view\").innerHTML = match(path)();\n  document.querySelectorAll(\"nav a\").forEach((a) => a.toggleAttribute(\"aria-current\", a.getAttribute(\"href\") === \"#/\" + path));\n}\naddEventListener(\"hashchange\", router);\nrouter();\n```\nLiên kết dạng `<a href=\"#/tasks\">`; nút quay lại của trình duyệt hoạt động sẵn. Nội dung có dữ liệu người dùng thì dựng bằng DOM/`textContent` thay cho chuỗi HTML."
+ },
+ {
+  "id": "web_data_export_import",
+  "kind": "web",
+  "title": "Xuất / nhập dữ liệu (JSON, CSV) cho web app",
+  "keys": [
+   "xuat du lieu",
+   "nhap du lieu",
+   "export",
+   "import",
+   "sao luu",
+   "backup",
+   "csv",
+   "json",
+   "tai ve file",
+   "khoi phuc"
+  ],
+  "body": "```js\nfunction download(name, text, type = \"application/json\") {\n  const a = document.createElement(\"a\");\n  a.href = URL.createObjectURL(new Blob([text], { type: type + \";charset=utf-8\" }));\n  a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);\n}\nconst exportJSON = (state) => download(`du-lieu-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 2));\nconst toCSV = (rows) => [Object.keys(rows[0] || {}), ...rows.map(Object.values)]\n  .map((r) => r.map((v) => `\"${String(v ?? \"\").replace(/\"/g, '\"\"')}\"`).join(\",\")).join(\"\\n\");\nasync function importJSON(file) {\n  const data = JSON.parse(await file.text());\n  if (!data || !Array.isArray(data.items)) throw new Error(\"File không đúng định dạng\");\n  return data;\n}\n```\nCSV mở bằng Excel tiếng Việt: thêm BOM `\"\\ufeff\" + csv` để không lỗi dấu. Luôn hỏi xác nhận trước khi nhập đè dữ liệu cũ."
+ },
+ {
+  "id": "web_app_patterns",
+  "kind": "web",
+  "title": "Các web app thường gặp và chức năng cần có",
+  "keys": [
+   "quan ly chi tieu",
+   "quan ly hoc tap",
+   "thoi khoa bieu",
+   "quan ly cong viec",
+   "ghi chu",
+   "so tay",
+   "quan ly kho",
+   "app hoc tu vung",
+   "habit tracker"
+  ],
+  "body": "- **Quản lý chi tiêu**: thêm khoản thu/chi (số tiền, danh mục, ngày, ghi chú), tổng theo tháng, biểu đồ theo danh mục, lọc theo khoảng ngày, xuất CSV.\n- **Thời khoá biểu / lịch học**: lưới 7 ngày × tiết, thêm môn với màu, nhắc bài kiểm tra, xem theo tuần.\n- **Quản lý công việc**: danh sách hoặc Kanban, hạn chót (tô đỏ khi quá hạn), ưu tiên, nhãn, tìm kiếm.\n- **Học từ vựng / flashcard**: bộ thẻ, lật thẻ, lặp lại ngắt quãng (thẻ khó xuất hiện lại sớm), thống kê đã thuộc.\n- **Theo dõi thói quen**: lưới ngày, chuỗi ngày liên tiếp, biểu đồ tuần.\nMỗi app: dữ liệu lưu localStorage/IndexedDB, có dữ liệu mẫu ở lần mở đầu, trạng thái rỗng, sao lưu/khôi phục, dùng tốt trên điện thoại."
  }
 ]

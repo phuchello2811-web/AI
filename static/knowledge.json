@@ -2205,5 +2205,360 @@
    "trang ca nhan"
   ],
   "body": "```html\n<script src=\"https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js\"></script>\n<script src=\"https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js\"></script>\n<article id=\"post\"></article>\n<script>\nconst md = \"# Tiêu đề\\n\\nĐoạn văn với **chữ đậm** và `code`.\";\ndocument.getElementById(\"post\").innerHTML = DOMPurify.sanitize(marked.parse(md));\n</script>\n```\n- Luôn làm sạch HTML sinh từ Markdown (DOMPurify) trước khi chèn vào trang.\n- Mục lục tự động: lấy các `h2/h3` trong bài, tạo `id` từ tiêu đề, dựng danh sách liên kết bên cạnh; đánh dấu mục đang đọc bằng `IntersectionObserver`."
+ },
+ {
+  "id": "ui_principles",
+  "kind": "web",
+  "title": "Nguyên lý thiết kế giao diện: phân cấp, căn chỉnh, gần gũi, nhất quán",
+  "keys": [
+   "nguyen ly thiet ke",
+   "thiet ke giao dien",
+   "ui design",
+   "phan cap",
+   "can chinh",
+   "bo cuc dep",
+   "dep hon",
+   "chuyen nghiep",
+   "ui"
+  ],
+  "body": "- **Phân cấp thị giác**: mỗi màn hình có 1 điểm nhấn chính (tiêu đề hoặc nút chính); phân cấp bằng cỡ chữ, độ đậm, màu và khoảng trắng — không phải bằng khung viền.\n- **Căn chỉnh**: mọi phần tử nằm trên một lưới; một trục căn trái cho cả khối nội dung. Lệch vài pixel làm giao diện trông \"nghiệp dư\".\n- **Gần gũi**: các thứ liên quan đặt gần nhau (nhãn sát ô nhập), nhóm khác nhau cách xa hơn — khoảng cách trong nhóm < giữa các nhóm.\n- **Nhất quán**: cùng một loại phần tử luôn cùng kiểu (bo góc, bóng, màu nút); dùng biến CSS cho mọi giá trị lặp lại.\n- **Ít mà chất**: bớt màu, bớt đường kẻ, bớt chữ in hoa; khoảng trắng rộng rãi làm giao diện sang hơn."
+ },
+ {
+  "id": "ui_spacing_system",
+  "kind": "web",
+  "title": "Hệ khoảng cách 4/8px và nhịp dọc",
+  "keys": [
+   "khoang cach",
+   "spacing",
+   "padding",
+   "margin",
+   "8px",
+   "thoang",
+   "chat choi",
+   "gap"
+  ],
+  "body": "```css\n:root { --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px; --s9: 96px; }\nsection { padding-block: clamp(var(--s7), 8vw, var(--s9)); }\n.stack > * + * { margin-top: var(--s4); }        /* khoảng cách đều giữa các con */\n.card { padding: var(--s5); display: grid; gap: var(--s3); }\n```\n- Chỉ dùng giá trị trong thang; nội dung trong thẻ 16–24px, giữa các phần 64–96px.\n- Dùng `gap` của flex/grid thay cho margin lẻ từng phần tử."
+ },
+ {
+  "id": "ui_color_palette",
+  "kind": "web",
+  "title": "Bảng màu: 60-30-10, màu trung tính, sắc độ, chế độ tối",
+  "keys": [
+   "mau",
+   "bang mau",
+   "color",
+   "palette",
+   "phoi mau",
+   "mau sac",
+   "mau chu dao",
+   "dark mode",
+   "che do toi",
+   "mau nen"
+  ],
+  "body": "- Tỉ lệ 60-30-10: 60% nền trung tính, 30% bề mặt/chữ phụ, 10% màu nhấn (nút chính, liên kết).\n- Một màu nhấn với 5–9 sắc độ (50…900) + dải xám hơi ngả cùng tông (xám xanh hợp màu nhấn xanh).\n```css\n:root { --accent: oklch(62% 0.19 264); --accent-hover: oklch(56% 0.2 264); --accent-soft: oklch(62% 0.19 264 / .12);\n        --bg: oklch(98.5% 0.004 264); --surface: #fff; --text: oklch(22% 0.02 264); --muted: oklch(50% 0.02 264); --line: oklch(91% 0.01 264); }\n@media (prefers-color-scheme: dark) { :root { --bg: oklch(16% 0.015 264); --surface: oklch(20% 0.02 264); --text: oklch(94% 0.01 264); --muted: oklch(70% 0.02 264); --line: oklch(30% 0.02 264); } }\n```\n- Chế độ tối: không dùng đen tuyệt đối (#000) và chữ trắng tuyệt đối; giảm độ bão hoà màu nhấn; tạo độ sâu bằng nền sáng dần thay cho bóng.\n- Màu trạng thái: xanh lá thành công, đỏ lỗi, vàng/cam cảnh báo — luôn kèm biểu tượng hoặc chữ (người mù màu)."
+ },
+ {
+  "id": "ui_contrast_accessibility",
+  "kind": "web",
+  "title": "Tương phản màu và khả năng đọc (WCAG)",
+  "keys": [
+   "tuong phan",
+   "contrast",
+   "wcag",
+   "kho doc",
+   "chu mo",
+   "mau chu",
+   "doc duoc",
+   "accessibility mau"
+  ],
+  "body": "- Chữ thường cần tỉ lệ tương phản ≥ 4.5:1, chữ lớn (≥ 24px hoặc ≥ 18.66px đậm) ≥ 3:1, viền nút/ô nhập ≥ 3:1.\n- Lỗi hay gặp: chữ xám nhạt `#aaa` trên trắng (2.3:1), chữ trắng trên nút màu sáng (vàng, xanh nhạt), chữ trên ảnh không có lớp phủ.\n- Chữ trên ảnh: thêm lớp `linear-gradient(to top, rgb(0 0 0 / .65), transparent)` phía sau chữ.\n- Chữ phụ trên nền trắng tối thiểu khoảng `#5f6368`; trên nền tối tối thiểu khoảng `#9aa0a6`."
+ },
+ {
+  "id": "ui_buttons",
+  "kind": "web",
+  "title": "Nút bấm: kiểu chính/phụ, trạng thái, kích thước",
+  "keys": [
+   "nut",
+   "button",
+   "nut bam",
+   "cta",
+   "hover",
+   "nut dep",
+   "trang thai nut",
+   "disabled"
+  ],
+  "body": "```css\n.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 18px;\n  border-radius: 10px; border: 1px solid transparent; font: 600 15px/1 inherit; cursor: pointer;\n  transition: background-color .15s, border-color .15s, transform .1s; }\n.btn-primary { background: var(--accent); color: #fff; } .btn-primary:hover { background: var(--accent-hover); }\n.btn-secondary { background: var(--surface); color: var(--text); border-color: var(--line); } .btn-secondary:hover { border-color: var(--muted); }\n.btn-ghost { background: transparent; color: var(--accent); } .btn-ghost:hover { background: var(--accent-soft); }\n.btn:active { transform: translateY(1px); }\n.btn:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 2px; }\n.btn:disabled, .btn[aria-busy=\"true\"] { opacity: .55; cursor: not-allowed; }\n```\n- Mỗi màn hình chỉ một nút chính; nhãn là động từ cụ thể (\"Tạo tài khoản\", không phải \"OK\"). Nút đang xử lý: đổi chữ + vòng quay, chặn bấm lặp."
+ },
+ {
+  "id": "ui_inputs",
+  "kind": "web",
+  "title": "Ô nhập liệu: nhãn, gợi ý, lỗi, trạng thái",
+  "keys": [
+   "o nhap",
+   "input",
+   "textbox",
+   "form dep",
+   "nhap lieu",
+   "label",
+   "thong bao loi form",
+   "placeholder"
+  ],
+  "body": "```html\n<label class=\"field\"><span>Email</span>\n  <input type=\"email\" name=\"email\" required autocomplete=\"email\" aria-describedby=\"email-hint\">\n  <small id=\"email-hint\">Dùng để gửi kết quả.</small></label>\n<style>\n.field { display: grid; gap: 6px; font-weight: 600; }\n.field input { min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font: 400 16px inherit; background: var(--surface); color: var(--text); }\n.field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }\n.field input:user-invalid { border-color: #d93025; }\n.field small { font-weight: 400; color: var(--muted); }\n</style>\n```\n- Nhãn luôn hiển thị (placeholder không thay thế nhãn); cỡ chữ ô nhập ≥ 16px để iPhone không tự phóng to.\n- Báo lỗi ngay dưới ô, nói cách sửa (\"Mật khẩu cần ít nhất 8 ký tự\"), không chỉ \"Không hợp lệ\"."
+ },
+ {
+  "id": "ui_dropdown_menu",
+  "kind": "web",
+  "title": "Menu thả xuống và popover",
+  "keys": [
+   "dropdown",
+   "menu tha xuong",
+   "popover",
+   "menu ngu canh",
+   "chon",
+   "select dep",
+   "tuy chon"
+  ],
+  "body": "```html\n<div class=\"menu\"><button class=\"btn btn-secondary\" aria-haspopup=\"menu\" aria-expanded=\"false\">Tuỳ chọn</button>\n  <div class=\"menu-list\" role=\"menu\" hidden><button role=\"menuitem\">Sửa</button><button role=\"menuitem\">Xoá</button></div></div>\n<script>\ndocument.querySelectorAll(\".menu\").forEach((m) => {\n  const btn = m.querySelector(\"button\"), list = m.querySelector(\".menu-list\");\n  const set = (open) => { list.hidden = !open; btn.setAttribute(\"aria-expanded\", open); };\n  btn.addEventListener(\"click\", (e) => { e.stopPropagation(); set(list.hidden); });\n  document.addEventListener(\"click\", () => set(false));\n  document.addEventListener(\"keydown\", (e) => { if (e.key === \"Escape\") set(false); });\n});\n</script>\n<style>.menu { position: relative; } .menu-list { position: absolute; top: calc(100% + 6px); right: 0; min-width: 180px; padding: 6px;\n  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px rgb(0 0 0 / .14); display: grid; z-index: 20; }</style>\n```"
+ },
+ {
+  "id": "ui_toast",
+  "kind": "web",
+  "title": "Thông báo nổi (toast) và hộp xác nhận",
+  "keys": [
+   "thong bao",
+   "toast",
+   "notification",
+   "snackbar",
+   "alert dep",
+   "bao thanh cong",
+   "bao loi"
+  ],
+  "body": "```js\nfunction toast(msg, type = \"info\") {\n  let box = document.querySelector(\".toasts\");\n  if (!box) { box = document.createElement(\"div\"); box.className = \"toasts\"; box.setAttribute(\"aria-live\", \"polite\"); document.body.append(box); }\n  const t = document.createElement(\"div\"); t.className = `toast ${type}`; t.textContent = msg; box.append(t);\n  setTimeout(() => { t.classList.add(\"leave\"); t.addEventListener(\"transitionend\", () => t.remove(), { once: true }); }, 3000);\n}\n```\n```css\n.toasts { position: fixed; bottom: 16px; left: 50%; translate: -50% 0; display: grid; gap: 8px; z-index: 100; }\n.toast { padding: 12px 16px; border-radius: 12px; background: #1f2430; color: #fff; box-shadow: 0 10px 30px rgb(0 0 0 / .2);\n  animation: rise .2s ease; transition: opacity .2s, translate .2s; } .toast.leave { opacity: 0; translate: 0 8px; }\n.toast.success { background: #137333; } .toast.error { background: #b3261e; }\n@keyframes rise { from { opacity: 0; translate: 0 8px; } }\n```\nHành động không thể hoàn tác (xoá) cần hộp xác nhận `<dialog>` hoặc nút \"Hoàn tác\" trong toast."
+ },
+ {
+  "id": "ui_loading_states",
+  "kind": "web",
+  "title": "Trạng thái đang tải (skeleton), trống và lỗi",
+  "keys": [
+   "loading",
+   "dang tai",
+   "skeleton",
+   "trang thai rong",
+   "empty state",
+   "khong co du lieu",
+   "loi tai",
+   "spinner"
+  ],
+  "body": "```css\n.skeleton { background: linear-gradient(90deg, var(--line) 25%, color-mix(in srgb, var(--line) 50%, var(--surface)) 50%, var(--line) 75%);\n  background-size: 200% 100%; animation: shimmer 1.2s infinite linear; border-radius: 8px; }\n@keyframes shimmer { to { background-position: -200% 0; } }\n```\n- Mọi khu vực dữ liệu có 4 trạng thái: đang tải (skeleton cùng hình dạng nội dung), có dữ liệu, trống (minh hoạ nhỏ + câu hướng dẫn + nút hành động), lỗi (nói chuyện gì xảy ra + nút \"Thử lại\").\n- Dưới 300 ms thì không hiện loading (tránh nhấp nháy); trên 10 giây thì báo tiến độ."
+ },
+ {
+  "id": "ui_navigation_patterns",
+  "kind": "web",
+  "title": "Điều hướng: breadcrumb, phân trang, tab dưới cho điện thoại",
+  "keys": [
+   "dieu huong",
+   "navigation",
+   "breadcrumb",
+   "phan trang",
+   "pagination",
+   "bottom nav",
+   "thanh duoi",
+   "stepper",
+   "buoc"
+  ],
+  "body": "- **Breadcrumb** (`Trang chủ / Khoá học / Bài 3`) cho trang nhiều tầng; `<nav aria-label=\"breadcrumb\">` + `aria-current=\"page\"`.\n- **Phân trang**: hiện trang đầu, cuối, 2 trang quanh trang hiện tại và \"…\"; hoặc \"Tải thêm\" cho danh sách dài trên điện thoại.\n- **Thanh tab dưới** (điện thoại, 3–5 mục chính): `position: fixed; bottom: 0; padding-bottom: env(safe-area-inset-bottom)`, biểu tượng + nhãn ngắn, mục hiện tại tô màu nhấn.\n- **Stepper** cho quy trình nhiều bước: số bước, tên bước, trạng thái xong/đang/chưa."
+ },
+ {
+  "id": "ui_cards_lists",
+  "kind": "web",
+  "title": "Thẻ nội dung, danh sách, avatar, nhãn (badge)",
+  "keys": [
+   "the",
+   "card",
+   "danh sach",
+   "list",
+   "avatar",
+   "badge",
+   "nhan",
+   "tag",
+   "san pham",
+   "bai viet"
+  ],
+  "body": "```css\n.card { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden;\n  transition: transform .2s, box-shadow .2s; } .card:hover { transform: translateY(-3px); box-shadow: 0 14px 36px rgb(0 0 0 / .12); }\n.card img { aspect-ratio: 16 / 9; object-fit: cover; width: 100%; }\n.card .body { padding: 20px; display: grid; gap: 8px; flex: 1; } .card .actions { margin-top: auto; padding: 0 20px 20px; }\n.badge { display: inline-flex; padding: 2px 10px; border-radius: 999px; font: 600 12px/1.6 inherit; background: var(--accent-soft); color: var(--accent); }\n.avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; display: grid; place-items: center; background: var(--accent-soft); font-weight: 700; }\n```\n- Cả thẻ bấm được: đặt liên kết ở tiêu đề với `a::after { content: \"\"; position: absolute; inset: 0 }` (thẻ `position: relative`).\n- Avatar không có ảnh: hiện chữ cái đầu của tên."
+ },
+ {
+  "id": "ui_modern_css",
+  "kind": "web",
+  "title": "CSS hiện đại: clamp, :has, container query, nesting, color-mix, @layer",
+  "keys": [
+   "css hien dai",
+   "modern css",
+   "clamp",
+   "has",
+   "container query",
+   "nesting",
+   "color-mix",
+   "layer",
+   "subgrid",
+   "aspect-ratio"
+  ],
+  "body": "```css\nh1 { font-size: clamp(2rem, 1.2rem + 3vw, 3.5rem); }                       /* cỡ chữ co giãn mượt */\n.card:has(img) { padding-top: 0; }                                           /* chọn cha theo con */\n.form:has(:user-invalid) .submit { opacity: .6; }\n.grid { container-type: inline-size; }\n@container (min-width: 520px) { .item { display: grid; grid-template-columns: 160px 1fr; } }  /* theo khung chứa, không theo màn hình */\n.nav { & a { color: var(--muted); } & a:hover { color: var(--text); } }     /* nesting gốc */\n.chip { background: color-mix(in srgb, var(--accent) 15%, transparent); }\n@layer reset, base, components, utilities;\n.list { display: grid; grid-template-rows: subgrid; }\n```\nTất cả chạy trên Chrome, Edge, Safari, Firefox bản hiện nay; không cần thư viện."
+ },
+ {
+  "id": "ui_motion",
+  "kind": "web",
+  "title": "Chuyển động giao diện: thời lượng, easing, vi tương tác",
+  "keys": [
+   "chuyen dong",
+   "motion",
+   "animation",
+   "easing",
+   "vi tuong tac",
+   "micro interaction",
+   "muot",
+   "hieu ung chuyen"
+  ],
+  "body": "- Thời lượng: 100–150 ms cho hover/nhấn, 200–300 ms cho mở/đóng, 300–500 ms cho chuyển trang; vào nhanh hơn ra.\n- Easing: vào `cubic-bezier(.2, .8, .2, 1)` (nhanh rồi chậm), ra `ease-in`. Tránh `linear` trừ vòng quay.\n- Chuyển cảnh giữa hai trạng thái bằng View Transitions: `document.startViewTransition(() => render())`.\n- Vi tương tác: nút nhấn lún 1px, tim \"nảy\" khi thích, số đếm chạy lên, dấu tích vẽ dần khi hoàn thành.\n- Luôn tôn trọng `prefers-reduced-motion`; không tự động chạy hiệu ứng lặp vô tận ở vùng đọc."
+ },
+ {
+  "id": "ui_mobile_ux",
+  "kind": "web",
+  "title": "Trải nghiệm điện thoại: vùng bấm, ngón cái, bàn phím, safe area",
+  "keys": [
+   "dien thoai",
+   "mobile",
+   "cam ung",
+   "touch",
+   "ngon tay",
+   "mobile first",
+   "responsive dien thoai",
+   "iphone",
+   "android"
+  ],
+  "body": "- Vùng bấm ≥ 44×44 px, cách nhau ≥ 8 px; hành động chính đặt ở nửa dưới màn hình (vùng ngón cái).\n- `<input type=\"tel|email|number\" inputmode=\"numeric\" autocomplete=\"...\">` để hiện đúng bàn phím; cỡ chữ ô nhập ≥ 16 px.\n- Tai thỏ và thanh home: `padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)` cùng `<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\">`.\n- Chiều cao màn hình: dùng `100dvh` thay `100vh` (thanh địa chỉ co giãn).\n- Hover không tồn tại trên cảm ứng: mọi thứ hiện khi hover phải truy cập được bằng chạm; dùng `@media (hover: hover)` cho hiệu ứng hover."
+ },
+ {
+  "id": "ui_ux_writing",
+  "kind": "web",
+  "title": "Viết chữ trên giao diện (UX writing) tiếng Việt",
+  "keys": [
+   "ux writing",
+   "noi dung giao dien",
+   "microcopy",
+   "chu tren nut",
+   "thong bao loi",
+   "van phong",
+   "tieng viet giao dien"
+  ],
+  "body": "- Ngắn, cụ thể, chủ động: \"Lưu thay đổi\" thay vì \"Bạn có muốn thực hiện việc lưu không?\".\n- Thông báo lỗi: chuyện gì xảy ra + cách sửa, không đổ lỗi (\"Không kết nối được. Kiểm tra mạng rồi thử lại.\").\n- Nhất quán xưng hô (bạn/mình) và thuật ngữ (đừng lúc \"Xoá\", lúc \"Gỡ bỏ\").\n- Viết hoa chữ đầu câu, không VIẾT HOA TOÀN BỘ; dùng số thay chữ (\"3 bài học\"); định dạng tiền `150.000 ₫`, ngày `25/10/2026`.\n- Trạng thái trống hướng dẫn bước tiếp theo (\"Chưa có ghi chú nào. Tạo ghi chú đầu tiên.\")."
+ },
+ {
+  "id": "ui_design_styles",
+  "kind": "web",
+  "title": "Phong cách thiết kế: tối giản, glass, bento, brutalism, neumorphism",
+  "keys": [
+   "phong cach",
+   "style",
+   "toi gian",
+   "minimal",
+   "glassmorphism",
+   "bento",
+   "brutalism",
+   "neumorphism",
+   "retro",
+   "hien dai"
+  ],
+  "body": "- **Tối giản**: nền trắng/kem, 1 màu nhấn, chữ lớn, khoảng trắng rộng, ảnh chất lượng — hợp portfolio, thương hiệu cao cấp.\n- **Bento grid**: lưới ô nhiều kích thước (`grid-template-columns: repeat(4, 1fr)` + `grid-column: span 2`), mỗi ô một ý — hợp trang giới thiệu tính năng.\n- **Glass**: thẻ mờ trên nền gradient sặc sỡ (`backdrop-filter: blur(16px)` + viền trắng mờ) — hợp dashboard, app tối.\n- **Brutalism**: viền đen dày, bóng đặc lệch (`box-shadow: 6px 6px 0 #000`), màu mạnh, font đậm — hợp sự kiện, trang cá tính.\n- **Neumorphism**: nền một màu, bóng sáng/tối hai phía — đẹp nhưng tương phản thấp, chỉ dùng cho điểm nhấn.\n- Chọn một phong cách theo đối tượng và giữ nhất quán toàn trang."
+ },
+ {
+  "id": "ui_icons_imagery",
+  "kind": "web",
+  "title": "Biểu tượng, hình minh hoạ, ảnh",
+  "keys": [
+   "icon",
+   "bieu tuong",
+   "hinh minh hoa",
+   "illustration",
+   "anh dep",
+   "hinh anh",
+   "lucide",
+   "svg icon"
+  ],
+  "body": "- Một bộ biểu tượng duy nhất, cùng độ dày nét (1.5–2px) và cỡ (16/20/24px); vẽ inline SVG với `stroke=\"currentColor\"` để đổi màu theo chữ.\n- Biểu tượng kèm nhãn trừ khi cực kỳ quen thuộc (tìm kiếm, đóng, menu); không dùng emoji làm biểu tượng giao diện.\n- Ảnh: cùng tông màu và tỉ lệ khung trong một lưới; `object-fit: cover` + `aspect-ratio`; ảnh minh hoạ tạm từ picsum.photos.\n- Hình minh hoạ đơn giản tự vẽ bằng SVG (khối hình học, blob, sóng) với màu của bảng màu trang."
+ },
+ {
+  "id": "ui_dashboard_design",
+  "kind": "web",
+  "title": "Thiết kế dashboard / trang quản trị",
+  "keys": [
+   "dashboard",
+   "quan tri",
+   "admin",
+   "bang dieu khien",
+   "thong ke",
+   "kpi",
+   "bao cao",
+   "quan ly"
+  ],
+  "body": "- Bố cục: thanh bên (điều hướng) + thanh trên (tìm kiếm, tài khoản) + vùng nội dung tối đa ~1400px.\n- Hàng KPI trên cùng: số lớn, nhãn nhỏ, so sánh kỳ trước (▲ 12% màu xanh / ▼ màu đỏ kèm chữ).\n- Biểu đồ chính rộng, biểu đồ phụ nhỏ hơn; bảng chi tiết có lọc, sắp xếp, phân trang.\n- Mật độ cao nhưng gọn: chữ 14px, hàng bảng 44–52px, căn phải các cột số, dùng `font-variant-numeric: tabular-nums`.\n- Bộ lọc thời gian (7 ngày / 30 ngày / tuỳ chọn) áp dụng cho toàn trang."
+ },
+ {
+  "id": "ui_hero_variants",
+  "kind": "web",
+  "title": "Các kiểu hero và phần đầu trang ấn tượng",
+  "keys": [
+   "hero",
+   "dau trang",
+   "an tuong",
+   "landing",
+   "banner lon",
+   "trang chu dep",
+   "mo dau"
+  ],
+  "body": "- **Chia đôi**: chữ trái (tiêu đề, mô tả, 2 nút), hình/mockup phải; xuống điện thoại thì xếp dọc, chữ trước.\n- **Căn giữa**: tiêu đề cực lớn, câu phụ, nút; nền gradient lưới chấm hoặc ảnh mờ; phía dưới là ảnh chụp sản phẩm nghiêng nhẹ.\n- **Video/ảnh toàn màn hình**: lớp phủ tối 40–60% để chữ trắng đọc được.\n- Chi tiết tạo cảm giác cao cấp: nhãn nhỏ phía trên tiêu đề (\"Mới · Phiên bản 2.0\"), chữ gradient một từ khoá, số liệu tin cậy ngay dưới nút."
+ },
+ {
+  "id": "ui_footer_sections",
+  "kind": "web",
+  "title": "Footer, phần liên hệ, bản đồ trang",
+  "keys": [
+   "footer",
+   "chan trang",
+   "lien he",
+   "contact",
+   "mang xa hoi",
+   "ban quyen",
+   "thong tin cong ty"
+  ],
+  "body": "- Footer nhiều cột (`grid-template-columns: 2fr repeat(3, 1fr)`): logo + một câu giới thiệu, các nhóm liên kết, liên hệ; xuống điện thoại thành 1–2 cột.\n- Dòng cuối: bản quyền `© 2026 Tên`, liên kết chính sách, biểu tượng mạng xã hội có `aria-label`.\n- Phần liên hệ: form ngắn (tên, email, nội dung), thông tin trực tiếp (email, số điện thoại dạng `tel:` bấm được, địa chỉ), thời gian phản hồi dự kiến."
+ },
+ {
+  "id": "ui_review_checklist",
+  "kind": "web",
+  "title": "Danh sách tự kiểm tra trước khi giao trang",
+  "keys": [
+   "kiem tra giao dien",
+   "checklist",
+   "review giao dien",
+   "hoan thien",
+   "truoc khi giao",
+   "chat luong giao dien"
+  ],
+  "body": "1. Khổ 375px: không tràn ngang, chữ ≥ 14px, nút ≥ 44px, menu điện thoại hoạt động.\n2. Khổ 1440px: nội dung không trải quá rộng (`max-width`), ảnh không vỡ, khoảng trắng cân đối.\n3. Tương phản đạt WCAG; trạng thái hover/focus/active/disabled cho mọi phần tử bấm được.\n4. Mọi nút, liên kết, form thật sự hoạt động; không còn chữ giữ chỗ, không lỗi trong console.\n5. Có trạng thái đang tải/trống/lỗi; ảnh có alt; tiêu đề trang và meta description.\n6. Thử bằng bàn phím (Tab, Enter, Esc) và chế độ tối nếu có."
+ },
+ {
+  "id": "ui_component_tokens",
+  "kind": "web",
+  "title": "Design tokens và thành phần dùng lại",
+  "keys": [
+   "design tokens",
+   "component",
+   "thanh phan",
+   "dung lai",
+   "he thong thiet ke",
+   "design system",
+   "bien css"
+  ],
+  "body": "```css\n:root {\n  --font-sans: \"Be Vietnam Pro\", system-ui, sans-serif;\n  --text-sm: 14px; --text-md: 16px; --text-lg: 20px; --text-xl: clamp(28px, 4vw, 40px);\n  --radius-sm: 8px; --radius-md: 12px; --radius-lg: 20px;\n  --shadow-sm: 0 1px 2px rgb(0 0 0 / .06); --shadow-md: 0 8px 24px rgb(0 0 0 / .10); --shadow-lg: 0 24px 60px rgb(0 0 0 / .16);\n  --ease-out: cubic-bezier(.2, .8, .2, 1); --dur-fast: 150ms; --dur-med: 250ms;\n}\n```\n- Mọi giá trị màu, cỡ chữ, bo góc, bóng, thời lượng lấy từ biến; đổi thương hiệu chỉ cần sửa `:root`.\n- Thành phần (nút, thẻ, ô nhập, badge) viết một lần, dùng lại bằng class; biến thể bằng modifier (`.btn-primary`, `.btn-sm`)."
  }
 ]

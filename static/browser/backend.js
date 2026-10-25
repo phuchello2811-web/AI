@@ -5,6 +5,7 @@
 import * as llm from "./models.js";
 import * as judge from "./judge.js";
 import { createAgent, createKnowledge, EFFORTS } from "./agent.js";
+import { uiAudit } from "./ui-audit.js";
 
 const [prompts, knowledgeEntries] = await Promise.all([
   fetch(new URL("../prompts.json", import.meta.url)).then((r) => r.json()),
@@ -57,25 +58,40 @@ function siteUrl(conv) {
   return siteUrls.get(conv.id);
 }
 
-/** Run a generated page in a hidden sandboxed frame for a few seconds and collect its runtime errors. */
-function checkSite(html) {
+/** Run a generated page in one hidden sandboxed frame of the given width; collect errors and UI issues. */
+function runInFrame(html, width, label) {
   const token = crypto.randomUUID();
   const probe = `<script>(function(){var E=[];function r(m){m=String(m).slice(0,300);if(E.indexOf(m)<0&&E.length<8){E.push(m);parent.postMessage({cmProbe:"${token}",errors:E},"*");}}`
     + `addEventListener("error",function(e){var t=e.target;if(t&&t!==window&&(t.src||t.href)){r("Không tải được: "+(t.src||t.href));}else{r((e.message||"Lỗi")+(e.lineno?" (dòng "+e.lineno+")":""));}},true);`
     + `addEventListener("unhandledrejection",function(e){r("Promise bị từ chối: "+((e.reason&&e.reason.message)||e.reason));});`
     + `var ce=console.error;console.error=function(){r([].map.call(arguments,String).join(" "));ce.apply(console,arguments);};})();<\/script>`;
-  const doc = inject(html, probe + STORAGE_SHIM);
+  // The UI audit runs once the page (and its own scripts) had a moment to lay out.
+  const audit = "<script>addEventListener('load',function(){setTimeout(function(){try{(" + uiAudit.toString() + ")("
+    + JSON.stringify(token) + "," + JSON.stringify(label) + ")}catch(e){}},800)});<\/script>";
+  const doc = inject(html, probe + STORAGE_SHIM + audit);
   return new Promise((resolve) => {
-    let errors = [];
+    let errors = [], ui = [];
     const frame = document.createElement("iframe");
     frame.setAttribute("sandbox", "allow-scripts");
-    frame.style.cssText = "position:fixed;left:-10000px;top:0;width:1280px;height:800px;border:0;visibility:hidden";
-    const onMessage = (e) => { if (e.data && e.data.cmProbe === token) errors = e.data.errors; };
+    frame.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;height:800px;border:0;visibility:hidden`;
+    const onMessage = (e) => {
+      if (!e.data) return;
+      if (e.data.cmProbe === token) errors = e.data.errors;
+      if (e.data.cmAudit === token) ui = e.data.issues;
+    };
     addEventListener("message", onMessage);
     frame.srcdoc = doc;
     document.body.appendChild(frame);
-    setTimeout(() => { removeEventListener("message", onMessage); frame.remove(); resolve(errors); }, 3500);
+    setTimeout(() => { removeEventListener("message", onMessage); frame.remove(); resolve({ errors, ui }); }, 4000);
   });
+}
+
+/** Check a generated page on a phone-sized and a desktop-sized screen: runtime errors and measured UI issues. */
+export async function checkSite(html) {
+  const [phone, desktop] = await Promise.all([runInFrame(html, 390, "điện thoại 390px"), runInFrame(html, 1280, "máy tính 1280px")]);
+  const errors = [...new Set([...phone.errors, ...desktop.errors])];
+  const ui = [...phone.ui.map((m) => `[Điện thoại] ${m}`), ...desktop.ui.filter((m) => !phone.ui.includes(m)).map((m) => `[Máy tính] ${m}`)];
+  return { errors, ui };
 }
 
 // What the agent learned: a short note for every problem it solved and verified, recalled for similar ones.

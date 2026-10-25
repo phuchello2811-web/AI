@@ -542,6 +542,8 @@ def run_turn(client: ollama.Client, conversation_id: str, messages: list, state:
     if mode in ("chat", "web"):
         entries = knowledge.retrieve(messages[-1]["content"], k=3 if mode == "web" else 2,
                                      min_score=3 if mode == "chat" else 2, kind="web" if mode == "web" else "cp")
+        if mode == "web" and "ui_principles" in knowledge.BY_ID and all(e["id"] != "ui_principles" for e in entries):
+            entries.append(knowledge.BY_ID["ui_principles"])
         if entries:
             system += "\n\n" + knowledge.as_prompt(entries)
             yield {"type": "tool_start", "id": "kb", "name": "knowledge"}

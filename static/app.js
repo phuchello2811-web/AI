@@ -476,10 +476,16 @@ class Turn {
         : `input ${Math.round((out.size || 0) / 1024)} KB · giới hạn ${out.time_limit}s`;
       body.innerHTML = `<pre>${esc(out.input_head || out.stderr || out.compile_error || "")}</pre>`;
     } else if (ev.name === "save_web_files") {
-      const errors = out.errors || [];
-      setBadge(errors.length ? "WA" : "OK", errors.length ? `${errors.length} lỗi` : "Chạy tốt");
-      sum.textContent = errors.length ? errors[0] : "index.html · không có lỗi khi chạy";
-      if (errors.length) body.innerHTML = `<pre>${esc(errors.join("\n"))}</pre>`;
+      const errors = out.errors || [], ui = out.ui || [];
+      const stage = { fix: "sau khi sửa lỗi", ui: "sau khi sửa giao diện", review: "sau khi tự đánh giá" }[out.stage] || "";
+      setBadge(errors.length ? "WA" : ui.length ? "TLE" : "OK",
+        errors.length ? `${errors.length} lỗi` : ui.length ? `${ui.length} vấn đề giao diện` : "Đạt kiểm tra");
+      sum.textContent = errors.length ? errors[0] : ui.length ? ui[0]
+        : `chạy không lỗi, giao diện ổn trên điện thoại và máy tính${stage ? " · " + stage : ""}`;
+      if (errors.length || ui.length) {
+        body.innerHTML = (errors.length ? `<b>Lỗi khi chạy</b><pre>${esc(errors.join("\n"))}</pre>` : "")
+          + (ui.length ? `<b>Kiểm tra giao diện</b><ul>${ui.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "");
+      }
       state.previewUrl = out.preview_url;
       if (live) showPreview(true);
     }
